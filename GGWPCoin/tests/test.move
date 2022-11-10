@@ -20,10 +20,10 @@ module coin::GGWP_tests {
         coin::register<GGWPCoin>(&user);
         assert!(coin::balance<GGWPCoin>(address_of(&user)) == 0, 1);
 
-        let amount = 100 ^ 8;
+        let amount = 10 * 100000000;
         GGWP::mint_to(&ggwp_coin, amount, address_of(&user));
 
-        assert!(coin::balance<GGWPCoin>(address_of(&user)) == amount, 1);
+        assert!(coin::balance<GGWPCoin>(address_of(&user)) == 1000000000, 1);
     }
 
     #[test(ggwp_coin = @coin)]
@@ -35,5 +35,25 @@ module coin::GGWP_tests {
         coin::register<GGWPCoin>(&user);
 
         GGWP::mint_to(&fake_signer, 1, address_of(&user));
+    }
+
+    #[test(ggwp_coin = @coin)]
+    fun transfer(ggwp_coin: signer) {
+        let user1 = account::create_account_for_test(@0x1);
+        let user2 = account::create_account_for_test(@0x2);
+        GGWP::set_up_test(&ggwp_coin);
+
+        coin::register<GGWPCoin>(&user1);
+        assert!(coin::balance<GGWPCoin>(address_of(&user1)) == 0, 1);
+        coin::register<GGWPCoin>(&user2);
+        assert!(coin::balance<GGWPCoin>(address_of(&user2)) == 0, 1);
+
+        let amount = 10 * 100000000;
+        GGWP::mint_to(&ggwp_coin, amount, address_of(&user1));
+        assert!(coin::balance<GGWPCoin>(address_of(&user1)) == amount, 1);
+
+        coin::transfer<GGWPCoin>(&user1, address_of(&user2), 100);
+
+        assert!(coin::balance<GGWPCoin>(address_of(&user1)) == amount - 100, 1);
     }
 }
