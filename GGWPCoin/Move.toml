@@ -1,0 +1,9 @@
+[package]
+name = 'ggwpcoin'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
+[addresses]
+coin = "0x57de268d237c952d9598180e90c751f1d5831358bf644d8750f455310961d86f"
