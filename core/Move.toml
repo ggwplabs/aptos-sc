@@ -1,0 +1,9 @@
+[package]
+name = 'ggwp_core'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
+[addresses]
+ggwp_core = "0x006442c17767e7f2cdb1b931565680dc84ab857c1fc12e68fadc7cec1ab4bfa3"

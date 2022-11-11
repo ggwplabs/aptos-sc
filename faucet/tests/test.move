@@ -18,8 +18,8 @@ module faucet::faucet_tests {
 
     #[test(faucet_signer = @faucet)]
     public entry fun test_create_faucet(faucet_signer: &signer) {
-        create_account_for_test(signer::address_of(faucet_signer));
         let faucet_addr = signer::address_of(faucet_signer);
+        create_account_for_test(faucet_addr);
 
         let (burn, freeze, mint) = coin::initialize<TestCoin>(
             faucet_signer,
@@ -50,8 +50,8 @@ module faucet::faucet_tests {
     #[test(faucet_signer = @faucet)]
     #[expected_failure(abort_code = 0x1001)]
     public entry fun test_already_exists(faucet_signer: &signer) {
-        create_account_for_test(signer::address_of(faucet_signer));
         let faucet_addr = signer::address_of(faucet_signer);
+        create_account_for_test(faucet_addr);
 
         let (burn, freeze, mint) = coin::initialize<TestCoin>(
             faucet_signer,
@@ -84,10 +84,10 @@ module faucet::faucet_tests {
     public entry fun test_request(faucet_signer: &signer, user: &signer) {
         genesis::setup();
 
-        create_account_for_test(signer::address_of(faucet_signer));
-        create_account_for_test(signer::address_of(user));
         let faucet_addr = signer::address_of(faucet_signer);
         let user_addr = signer::address_of(user);
+        create_account_for_test(faucet_addr);
+        create_account_for_test(user_addr);
 
         let (burn, freeze, mint) = coin::initialize<TestCoin>(
             faucet_signer,
@@ -128,8 +128,8 @@ module faucet::faucet_tests {
     public entry fun test_faucet_fail_request(faucet_signer: &signer) {
         genesis::setup();
 
-        create_account_for_test(signer::address_of(faucet_signer));
         let faucet_addr = signer::address_of(faucet_signer);
+        create_account_for_test(faucet_addr);
 
         let (burn, freeze, mint) = coin::initialize<TestCoin>(
             faucet_signer,
