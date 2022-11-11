@@ -14,8 +14,8 @@ module coin::GGWP {
         freeze: Option<FreezeCapability<GGWPCoin>>
     }
 
-    // Initialize GGWP coin.
-    // Will be called automatically as part of publishing the package.
+    /// Initialize GGWP coin.
+    /// Will be called automatically as part of publishing the package.
     fun init_module(account: &signer) {
         if (exists<CapStore>(address_of(account))) {
             return
@@ -37,7 +37,12 @@ module coin::GGWP {
         move_to(account, caps);
     }
 
-    // Mint GGWP tokens by coin owner.
+    /// Register CoinStore for account.
+    public entry fun register(account: &signer) {
+        coin::register<GGWPCoin>(account);
+    }
+
+    /// Mint GGWP tokens by coin owner.
     public entry fun mint_to(account: &signer, amount: u64, to: address) acquires CapStore {
         let caps = borrow_global<CapStore>(address_of(account));
         let minted = coin::mint(amount, option::borrow(&caps.mint));

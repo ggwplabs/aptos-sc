@@ -17,7 +17,7 @@ module coin::GGWP_tests {
         let user = account::create_account_for_test(@0x112233445566);
         GGWP::set_up_test(&ggwp_coin);
 
-        coin::register<GGWPCoin>(&user);
+        GGWP::register(&user);
         assert!(coin::balance<GGWPCoin>(address_of(&user)) == 0, 1);
 
         let amount = 10 * 100000000;
@@ -32,7 +32,7 @@ module coin::GGWP_tests {
         let user = account::create_account_for_test(@0x11221);
         let fake_signer = account::create_account_for_test(@0x11222);
         GGWP::set_up_test(&ggwp_coin);
-        coin::register<GGWPCoin>(&user);
+        GGWP::register(&user);
 
         GGWP::mint_to(&fake_signer, 1, address_of(&user));
     }
@@ -43,9 +43,9 @@ module coin::GGWP_tests {
         let user2 = account::create_account_for_test(@0x2);
         GGWP::set_up_test(&ggwp_coin);
 
-        coin::register<GGWPCoin>(&user1);
+        GGWP::register(&user1);
         assert!(coin::balance<GGWPCoin>(address_of(&user1)) == 0, 1);
-        coin::register<GGWPCoin>(&user2);
+        GGWP::register(&user2);
         assert!(coin::balance<GGWPCoin>(address_of(&user2)) == 0, 1);
 
         let amount = 10 * 100000000;
