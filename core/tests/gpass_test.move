@@ -72,4 +72,52 @@ module ggwp_core::gpass_test {
         assert!(GPass::get_balance(user_addr) == 5, 8);
         assert!(GPass::get_total_amount(core_addr) == 5, 9);
     }
+
+    #[test(core_signer = @ggwp_core, burner=@0x1212, user1 = @0x11, user2 = @0x22)]
+    public entry fun burn_with_burns(core_signer: &signer, burner: &signer, user1: &signer, user2: &signer) {
+        genesis::setup();
+
+        let core_addr = signer::address_of(core_signer);
+        let burner_addr = signer::address_of(burner);
+        let user1_addr = signer::address_of(user1);
+        let user2_addr = signer::address_of(user2);
+        create_account_for_test(core_addr);
+        create_account_for_test(burner_addr);
+        create_account_for_test(user1_addr);
+        create_account_for_test(user2_addr);
+
+        let now = timestamp::now_seconds();
+        let burn_period = 300;
+        GPass::initialize(core_signer, burn_period);
+        GPass::add_burner(core_signer, burner_addr);
+
+        GPass::create_wallet(user1);
+        GPass::create_wallet(user2);
+        assert!(GPass::get_balance(user1_addr) == 0, 1);
+        assert!(GPass::get_last_burned(user1_addr) == now, 2);
+        assert!(GPass::get_balance(user2_addr) == 0, 3);
+        assert!(GPass::get_last_burned(user2_addr) == now, 4);
+
+        GPass::mint_to(core_signer, core_addr, user1_addr, 10);
+        assert!(GPass::get_balance(user1_addr) == 10, 5);
+        assert!(GPass::get_total_amount(core_addr) == 10, 6);
+
+        GPass::mint_to(core_signer, core_addr, user2_addr, 15);
+        assert!(GPass::get_balance(user2_addr) == 15, 7);
+        assert!(GPass::get_total_amount(core_addr) == 25, 8);
+
+        GPass::burn(burner, core_addr, user2_addr, 10);
+        assert!(GPass::get_balance(user2_addr) == 5, 9);
+        assert!(GPass::get_total_amount(core_addr) == 15, 10);
+
+        timestamp::update_global_time_for_test_secs(now + burn_period);
+
+        GPass::burn(burner, core_addr, user1_addr, 5);
+        assert!(GPass::get_balance(user1_addr) == 0, 11);
+        assert!(GPass::get_total_amount(core_addr) == 5, 12);
+
+        GPass::burn(burner, core_addr, user2_addr, 5);
+        assert!(GPass::get_balance(user1_addr) == 0, 13);
+        assert!(GPass::get_total_amount(core_addr) == 0, 14);
+    }
 }
