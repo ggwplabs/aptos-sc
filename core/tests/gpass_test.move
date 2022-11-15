@@ -5,7 +5,7 @@ module ggwp_core::gpass_test {
     use aptos_framework::account::create_account_for_test;
     use aptos_framework::genesis;
 
-    use ggwp_core::GPass;
+    use ggwp_core::gpass;
 
     #[test(core_signer = @ggwp_core)]
     #[expected_failure(abort_code = 0x1002)]
@@ -13,12 +13,26 @@ module ggwp_core::gpass_test {
         let core_addr = signer::address_of(core_signer);
         create_account_for_test(core_addr);
 
-        GPass::initialize(core_signer, 5000);
-        assert!(GPass::get_total_amount(core_addr) == 0, 1);
-        assert!(GPass::get_burn_period(core_addr) == 5000, 1);
+        gpass::initialize(core_signer, 5000);
+        assert!(gpass::get_total_amount(core_addr) == 0, 1);
+        assert!(gpass::get_burn_period(core_addr) == 5000, 2);
 
         // Try to initialize twice
-        GPass::initialize(core_signer, 6000);
+        gpass::initialize(core_signer, 6000);
+    }
+
+    #[test(core_signer = @ggwp_core)]
+    public entry fun update_params(core_signer: &signer) {
+        let core_addr = signer::address_of(core_signer);
+        create_account_for_test(core_addr);
+
+        gpass::initialize(core_signer, 5000);
+        assert!(gpass::get_total_amount(core_addr) == 0, 1);
+        assert!(gpass::get_burn_period(core_addr) == 5000, 2);
+
+        let new_period = 11223344;
+        gpass::update_burn_period(core_signer, new_period);
+        assert!(gpass::get_burn_period(core_addr) == new_period, 3);
     }
 
     // invalid mint auth
@@ -34,11 +48,11 @@ module ggwp_core::gpass_test {
         create_account_for_test(user_addr);
         create_account_for_test(invalid_auth_addr);
 
-        GPass::initialize(core_signer, 50);
-        GPass::create_wallet(user);
-        assert!(GPass::get_balance(user_addr) == 0, 1);
+        gpass::initialize(core_signer, 50);
+        gpass::create_wallet(user);
+        assert!(gpass::get_balance(user_addr) == 0, 1);
 
-        GPass::mint_to(invalid_auth, core_addr, user_addr, 5);
+        gpass::mint_to(invalid_auth, core_addr, user_addr, 5);
     }
 
     #[test(core_signer = @ggwp_core, user = @0x11)]
@@ -52,25 +66,25 @@ module ggwp_core::gpass_test {
 
         let now = timestamp::now_seconds();
         let burn_period = 300;
-        GPass::initialize(core_signer, burn_period);
+        gpass::initialize(core_signer, burn_period);
 
-        GPass::create_wallet(user);
-        assert!(GPass::get_balance(user_addr) == 0, 1);
-        assert!(GPass::get_last_burned(user_addr) == now, 2);
+        gpass::create_wallet(user);
+        assert!(gpass::get_balance(user_addr) == 0, 1);
+        assert!(gpass::get_last_burned(user_addr) == now, 2);
 
-        GPass::mint_to(core_signer, core_addr, user_addr, 5);
-        assert!(GPass::get_balance(user_addr) == 5, 3);
-        assert!(GPass::get_total_amount(core_addr) == 5, 4);
+        gpass::mint_to(core_signer, core_addr, user_addr, 5);
+        assert!(gpass::get_balance(user_addr) == 5, 3);
+        assert!(gpass::get_total_amount(core_addr) == 5, 4);
 
-        GPass::mint_to(core_signer, core_addr, user_addr, 10);
-        assert!(GPass::get_balance(user_addr) == 15, 5);
-        assert!(GPass::get_total_amount(core_addr) == 15, 6);
+        gpass::mint_to(core_signer, core_addr, user_addr, 10);
+        assert!(gpass::get_balance(user_addr) == 15, 5);
+        assert!(gpass::get_total_amount(core_addr) == 15, 6);
 
         timestamp::update_global_time_for_test_secs(now + burn_period);
 
-        GPass::mint_to(core_signer, core_addr, user_addr, 5);
-        assert!(GPass::get_balance(user_addr) == 5, 8);
-        assert!(GPass::get_total_amount(core_addr) == 5, 9);
+        gpass::mint_to(core_signer, core_addr, user_addr, 5);
+        assert!(gpass::get_balance(user_addr) == 5, 8);
+        assert!(gpass::get_total_amount(core_addr) == 5, 9);
     }
 
     #[test(core_signer = @ggwp_core, burner=@0x1212, user1 = @0x11, user2 = @0x22)]
@@ -88,36 +102,36 @@ module ggwp_core::gpass_test {
 
         let now = timestamp::now_seconds();
         let burn_period = 300;
-        GPass::initialize(core_signer, burn_period);
-        GPass::add_burner(core_signer, burner_addr);
+        gpass::initialize(core_signer, burn_period);
+        gpass::add_burner(core_signer, burner_addr);
 
-        GPass::create_wallet(user1);
-        GPass::create_wallet(user2);
-        assert!(GPass::get_balance(user1_addr) == 0, 1);
-        assert!(GPass::get_last_burned(user1_addr) == now, 2);
-        assert!(GPass::get_balance(user2_addr) == 0, 3);
-        assert!(GPass::get_last_burned(user2_addr) == now, 4);
+        gpass::create_wallet(user1);
+        gpass::create_wallet(user2);
+        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_last_burned(user1_addr) == now, 2);
+        assert!(gpass::get_balance(user2_addr) == 0, 3);
+        assert!(gpass::get_last_burned(user2_addr) == now, 4);
 
-        GPass::mint_to(core_signer, core_addr, user1_addr, 10);
-        assert!(GPass::get_balance(user1_addr) == 10, 5);
-        assert!(GPass::get_total_amount(core_addr) == 10, 6);
+        gpass::mint_to(core_signer, core_addr, user1_addr, 10);
+        assert!(gpass::get_balance(user1_addr) == 10, 5);
+        assert!(gpass::get_total_amount(core_addr) == 10, 6);
 
-        GPass::mint_to(core_signer, core_addr, user2_addr, 15);
-        assert!(GPass::get_balance(user2_addr) == 15, 7);
-        assert!(GPass::get_total_amount(core_addr) == 25, 8);
+        gpass::mint_to(core_signer, core_addr, user2_addr, 15);
+        assert!(gpass::get_balance(user2_addr) == 15, 7);
+        assert!(gpass::get_total_amount(core_addr) == 25, 8);
 
-        GPass::burn(burner, core_addr, user2_addr, 10);
-        assert!(GPass::get_balance(user2_addr) == 5, 9);
-        assert!(GPass::get_total_amount(core_addr) == 15, 10);
+        gpass::burn(burner, core_addr, user2_addr, 10);
+        assert!(gpass::get_balance(user2_addr) == 5, 9);
+        assert!(gpass::get_total_amount(core_addr) == 15, 10);
 
         timestamp::update_global_time_for_test_secs(now + burn_period);
 
-        GPass::burn(burner, core_addr, user1_addr, 5);
-        assert!(GPass::get_balance(user1_addr) == 0, 11);
-        assert!(GPass::get_total_amount(core_addr) == 5, 12);
+        gpass::burn(burner, core_addr, user1_addr, 5);
+        assert!(gpass::get_balance(user1_addr) == 0, 11);
+        assert!(gpass::get_total_amount(core_addr) == 5, 12);
 
-        GPass::burn(burner, core_addr, user2_addr, 5);
-        assert!(GPass::get_balance(user1_addr) == 0, 13);
-        assert!(GPass::get_total_amount(core_addr) == 0, 14);
+        gpass::burn(burner, core_addr, user2_addr, 5);
+        assert!(gpass::get_balance(user1_addr) == 0, 13);
+        assert!(gpass::get_total_amount(core_addr) == 0, 14);
     }
 }

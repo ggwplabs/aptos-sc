@@ -1,5 +1,5 @@
-/// Module for GPass tickets.
-module ggwp_core::GPass {
+/// Module for gpass tickets.
+module ggwp_core::gpass {
     use std::signer;
     use std::vector;
     use aptos_framework::timestamp;
