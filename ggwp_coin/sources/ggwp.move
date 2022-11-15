@@ -1,4 +1,4 @@
-module coin::GGWP {
+module coin::ggwp {
      use aptos_framework::coin::{Self,
         MintCapability, BurnCapability, FreezeCapability
     };
