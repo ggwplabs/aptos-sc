@@ -4,13 +4,64 @@ module ggwp_core::gpass {
     use std::vector;
     use aptos_framework::timestamp;
 
+    // Common errors.
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
-    const ERR_INVALID_BURN_PERIOD: u64 = 0x1003;
-    const ERR_WALLET_NOT_INITIALIZED: u64 = 0x1004;
-    const ERR_INVALID_AMOUNT: u64 = 0x1005;
-    const ERR_INVALID_MINT_AUTH: u64 = 0x1006;
-    const ERR_INVALID_BURN_AUTH: u64 = 0x1007;
+    // GPASS errors.
+    const ERR_INVALID_BURN_PERIOD: u64 = 0x1011;
+    const ERR_WALLET_NOT_INITIALIZED: u64 = 0x1012;
+    const ERR_INVALID_AMOUNT: u64 = 0x1013;
+    const ERR_INVALID_BURN_AUTH: u64 = 0x1014;
+    // Freezing errors.
+    const ERR_INVALID_PERIOD: u64 = 0x1021;
+    const ERR_INVALID_ROYALTY: u64 = 0x1022;
+    const ERR_ZERO_FREEZING_AMOUNT: u64 = 0x1023;
+
+    /// Initialize module.
+    public entry fun initialize(
+        ggwp_core: &signer,
+        burn_period: u64,
+        reward_period: u64,
+        royalty: u8,
+        unfreeze_royalty: u8,
+        unfreeze_lock_period: u64,
+        reward_table: vector<RewardTableRow>,
+    ) {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(!exists<GpassInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
+        assert!(!exists<FreezingInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
+
+        assert!(burn_period != 0, ERR_INVALID_BURN_PERIOD);
+        assert!(reward_period != 0, ERR_INVALID_PERIOD);
+        assert!(royalty <= 100, ERR_INVALID_ROYALTY);
+        assert!(unfreeze_royalty <= 100, ERR_INVALID_ROYALTY);
+
+        let gpass_info = GpassInfo {
+            burn_period: burn_period,
+            total_amount: 0,
+            burners: vector::empty(),
+        };
+        move_to(ggwp_core, gpass_info);
+
+        let now = timestamp::now_seconds();
+        let freezing_info = FreezingInfo {
+            total_freezed: 0,
+            total_users_freezed: 0,
+            reward_period: reward_period,
+            royalty: royalty,
+
+            daily_gpass_reward: 0,
+            daily_gpass_reward_last_reset: now,
+
+            unfreeze_royalty: unfreeze_royalty,
+            unfreeze_lock_period: unfreeze_lock_period,
+
+            reward_table: reward_table,
+        };
+        move_to(ggwp_core, freezing_info);
+    }
+
+    // GPASS
 
     /// Users accounts data.
     struct Wallet has key, store {
@@ -26,41 +77,27 @@ module ggwp_core::gpass {
         burners: vector<address>,
     }
 
-    /// Initialize gpass info with params.
-    public entry fun initialize(gpass_account: &signer, burn_period: u64) {
-        let gpass_addr = signer::address_of(gpass_account);
-        assert!(!exists<GpassInfo>(gpass_addr), ERR_ALREADY_INITIALIZED);
+    /// Adding the new burner in burners list.
+    public entry fun add_burner(ggwp_core: &signer, burner: address) acquires GpassInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
-        assert!(burn_period != 0, ERR_INVALID_BURN_PERIOD);
-
-        let gpass_info = GpassInfo {
-            burn_period: burn_period,
-            total_amount: 0,
-            burners: vector::empty(),
-        };
-        move_to(gpass_account, gpass_info);
-    }
-
-    public entry fun add_burner(gpass_account: &signer, burner: address) acquires GpassInfo {
-        let gpass_addr = signer::address_of(gpass_account);
-        assert!(exists<GpassInfo>(gpass_addr), ERR_NOT_INITIALIZED);
-
-        let gpass_info = borrow_global_mut<GpassInfo>(gpass_addr);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         vector::push_back(&mut gpass_info.burners, burner);
     }
 
     /// Update burn period.
-    public entry fun update_burn_period(gpass_account: &signer, burn_period: u64) acquires GpassInfo {
-        let gpass_addr = signer::address_of(gpass_account);
-        assert!(exists<GpassInfo>(gpass_addr), ERR_NOT_INITIALIZED);
+    public entry fun update_burn_period(ggwp_core: &signer, burn_period: u64) acquires GpassInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
-        let gpass_info = borrow_global_mut<GpassInfo>(gpass_addr);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         gpass_info.burn_period = burn_period;
     }
 
     /// User creates new wallet.
-    public entry fun create_wallet(user_account: &signer) {
-        let user_addr = signer::address_of(user_account);
+    public entry fun create_wallet(user: &signer) {
+        let user_addr = signer::address_of(user);
         assert!(!exists<Wallet>(user_addr), ERR_ALREADY_INITIALIZED);
 
         let now = timestamp::now_seconds();
@@ -68,18 +105,16 @@ module ggwp_core::gpass {
             amount: 0,
             last_burned: now,
         };
-        move_to(user_account, wallet);
+        move_to(user, wallet);
     }
 
-    /// Mint the amount of GPASS to user wallet. Available only for minters.
+    /// Mint the amount of GPASS to user wallet.
     /// There is trying to burn overdues before minting.
-    public entry fun mint_to(minter: &signer, gpass_info: address, to: address, amount: u64) acquires Wallet, GpassInfo {
+    public fun mint_to(ggwp_core: address, to: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(to), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
-        // Note: minter is the ggwp_core contract.
-        assert!(exists<GpassInfo>(signer::address_of(minter)), ERR_INVALID_MINT_AUTH);
 
-        let gpass_info = borrow_global_mut<GpassInfo>(gpass_info);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core);
         let wallet = borrow_global_mut<Wallet>(to);
 
         let now = timestamp::now_seconds();
@@ -95,12 +130,12 @@ module ggwp_core::gpass {
 
     /// Burn the amount of GPASS from user wallet. Available only for burners.
     /// There is trying to burn overdues before burning.
-    public entry fun burn(burner: &signer, gpass_info: address, from: address, amount: u64) acquires Wallet, GpassInfo {
+    public entry fun burn(burner: &signer, ggwp_core: address, from: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
-        assert!(exists<GpassInfo>(gpass_info), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core), ERR_NOT_INITIALIZED);
 
-        let gpass_info = borrow_global_mut<GpassInfo>(gpass_info);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core);
         // Note: burner is the ggwp_games contract.
         assert!(vector::contains(&gpass_info.burners, &signer::address_of(burner)), ERR_INVALID_BURN_AUTH);
 
@@ -120,7 +155,7 @@ module ggwp_core::gpass {
         }
     }
 
-    // Getters.
+    // GPASS Getters.
     public fun get_burn_period(gpass_info: address): u64 acquires GpassInfo {
         borrow_global<GpassInfo>(gpass_info).burn_period
     }
@@ -135,5 +170,143 @@ module ggwp_core::gpass {
 
     public fun get_last_burned(wallet: address): u64 acquires Wallet {
         borrow_global<Wallet>(wallet).last_burned
+    }
+
+    // Freezing
+
+    /// Reward table row.
+    struct RewardTableRow has store, drop {
+        ggwp_amount: u64,
+        gpass_amount: u64
+    }
+
+    /// Common data struct with freezing info.
+    struct FreezingInfo has key, store {
+        total_freezed: u64,
+        total_users_freezed: u64,
+        reward_period: u64,
+        royalty: u8,
+
+        daily_gpass_reward: u64,
+        daily_gpass_reward_last_reset: u64,
+
+        unfreeze_royalty: u8,
+        unfreeze_lock_period: u64,
+
+        reward_table: vector<RewardTableRow>,
+    }
+
+    /// Freezing user info data.
+    struct UserInfo has key, store {
+        freezed_amount: u64,
+        freezed_time: u64,       // UnixTimestamp
+        last_getting_gpass: u64, // UnixTimestamp
+    }
+
+    // Freezing Getters.
+
+    /// Update freezing parameters.
+    public entry fun update_params(
+        ggwp_core: &signer,
+        reward_period: u64,
+        royalty: u8,
+        unfreeze_royalty: u8,
+        unfreeze_lock_period: u64,
+        reward_table: vector<RewardTableRow>,
+    ) acquires FreezingInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        assert!(reward_period != 0, ERR_INVALID_PERIOD);
+        assert!(royalty <= 100, ERR_INVALID_ROYALTY);
+        assert!(unfreeze_royalty <= 100, ERR_INVALID_ROYALTY);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        freezing_info.reward_period = reward_period;
+        freezing_info.royalty = royalty;
+        freezing_info.unfreeze_royalty = unfreeze_royalty;
+        freezing_info.unfreeze_lock_period = unfreeze_lock_period;
+        freezing_info.reward_table = reward_table;
+    }
+
+    /// User freezes his amount of GGWP token to get the GPASS.
+    public entry fun freeze_tokens(user: &signer, ggwp_core_addr: address, freezed_amount: u64) acquires FreezingInfo, GpassInfo, UserInfo, Wallet {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(freezed_amount != 0, ERR_ZERO_FREEZING_AMOUNT);
+
+        let user_addr = signer::address_of(user);
+        if (!exists<UserInfo>(user_addr)) {
+            let user_info = UserInfo {
+                freezed_amount: 0,
+                freezed_time: 0,
+                last_getting_gpass: 0,
+            };
+            move_to(user, user_info);
+        };
+
+        let user_info = borrow_global_mut<UserInfo>(user_addr);
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+
+        // TODO: royalty amount
+        // Pay amount of GPASS earned by user immediately
+        let gpass_earned = earned_gpass_immediately(&freezing_info.reward_table, freezed_amount);
+
+        // Try to reset gpass daily reward
+        let now = timestamp::now_seconds();
+        let spent_time = now - freezing_info.daily_gpass_reward_last_reset;
+        if (spent_time >= 24 * 60 * 60) {
+            freezing_info.daily_gpass_reward = 0;
+            freezing_info.daily_gpass_reward_last_reset = now;
+        };
+
+        if (gpass_earned > 0) {
+            freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
+            user_info.last_getting_gpass = now;
+
+            // TODO: mint gpass_earned to user
+            mint_to(ggwp_core_addr, user_addr, gpass_earned);
+        };
+
+        // TODO:
+        // Transfer royalty amount into accumulative fund
+        // Freeze GGWP, transfer to treasury
+
+        freezing_info.total_freezed = freezing_info.total_freezed + freezed_amount;
+        freezing_info.total_users_freezed = freezing_info.total_users_freezed + 1;
+        user_info.freezed_amount = freezed_amount;
+        user_info.freezed_time = now;
+    }
+
+    fun earned_gpass_immediately(reward_table: &vector<RewardTableRow>, freezed_amount: u64): u64 {
+        let earned_gpass = 0;
+        let i = 0;
+        while (i < vector::length(reward_table)) {
+            let row = vector::borrow(reward_table, i);
+            if (freezed_amount >= row.ggwp_amount) {
+                earned_gpass = row.gpass_amount;
+            } else {
+                break
+            }
+        };
+
+        earned_gpass
+    }
+
+    fun calc_earned_gpass(
+        reward_table: &vector<RewardTableRow>,
+        freezed_amount: u64,
+        current_time: u64,
+        last_getting_gpass: u64,
+        reward_period: u64
+    ): u64 {
+        let spent_time = current_time - last_getting_gpass;
+        if (spent_time < reward_period) {
+            return 0
+        };
+
+        let reward_periods_spent = spent_time / reward_period;
+        let earned_gpass = earned_gpass_immediately(reward_table, freezed_amount);
+        earned_gpass * reward_periods_spent
     }
 }
