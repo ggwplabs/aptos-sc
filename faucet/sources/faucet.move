@@ -26,6 +26,7 @@ module faucet::faucet {
     }
 
     /// Creates new faucet on `faucet_account` address for coin `CoinType`.
+    /// faucet_account must be funded witn CoinType first.
     public entry fun create_faucet<CoinType>(faucet_account: &signer, amount_to_deposit: u64, per_request: u64, period: u64) {
         let faucet_addr = signer::address_of(faucet_account);
         let deposit = coin::withdraw<CoinType>(faucet_account, amount_to_deposit);
