@@ -19,6 +19,7 @@ module ggwp_core::gpass {
     const ERR_INVALID_PERIOD: u64 = 0x1021;
     const ERR_INVALID_ROYALTY: u64 = 0x1022;
     const ERR_ZERO_FREEZING_AMOUNT: u64 = 0x1023;
+    const ERR_ZERO_GPASS_EARNED: u64 = 0x1024;
 
     /// Initialize module.
     public entry fun initialize(
@@ -285,11 +286,57 @@ module ggwp_core::gpass {
         user_info.freezed_time = now;
     }
 
+    /// In every time user can withdraw GPASS earned.
+    public entry fun withdraw_gpass(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, Wallet, GpassInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        let user_addr = signer::address_of(user);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let user_info = borrow_global_mut<UserInfo>(user_addr);
+
+        let now = timestamp::now_seconds();
+        let gpass_earned
+            = calc_earned_gpass(
+                &freezing_info.reward_table,
+                user_info.freezed_amount,
+                now,
+                user_info.last_getting_gpass,
+                freezing_info.reward_period
+        );
+        assert!(gpass_earned != 0, ERR_ZERO_GPASS_EARNED);
+
+        // Try to reset gpass daily reward
+        let now = timestamp::now_seconds();
+        let spent_time = now - freezing_info.daily_gpass_reward_last_reset;
+        if (spent_time >= 24 * 60 * 60) {
+            freezing_info.daily_gpass_reward = 0;
+            freezing_info.daily_gpass_reward_last_reset = now;
+        };
+
+        freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
+        user_info.last_getting_gpass = now;
+
+        // Mint GPASS to user
+        mint_to(ggwp_core_addr, user_addr, gpass_earned);
+    }
+
     // Freezing Getters.
 
     public fun get_treasury_balance(ggwp_core_addr: address): u64 acquires FreezingInfo {
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         coin::value<GGWPCoin>(&freezing_info.treasury)
+    }
+
+    public fun get_earned_gpass_in_time(ggwp_core_addr: address, user_addr: address, time: u64): u64 acquires FreezingInfo, UserInfo {
+        let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
+        let user_info = borrow_global<UserInfo>(user_addr);
+        calc_earned_gpass(&freezing_info.reward_table, user_info.freezed_amount, time, user_info.last_getting_gpass, freezing_info.reward_period)
+    }
+
+    public fun get_last_getting_gpass(user_addr: address): u64 acquires UserInfo {
+        borrow_global<UserInfo>(user_addr).last_getting_gpass
     }
 
     public fun get_reward_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
