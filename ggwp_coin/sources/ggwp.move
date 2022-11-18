@@ -49,8 +49,6 @@ module coin::ggwp {
         coin::deposit(to, minted);
     }
 
-    // TODO: burn
-
     #[test_only]
     public fun set_up_test(resource_account: &signer) {
         use std::signer;
