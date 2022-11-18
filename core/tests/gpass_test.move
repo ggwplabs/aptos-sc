@@ -245,7 +245,45 @@ module ggwp_core::gpass_test {
         gpass::withdraw_gpass(user1, core_addr);
         assert!(gpass::get_balance(user1_addr) == 10, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
-    }
 
-    // TODO: unfreeze_tokens tests
+        // User2 unfreeze tokens without unfreeze royalty
+        gpass::unfreeze(user2, core_addr);
+        assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_init_balance - royalty_amount2), 1);
+        assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2, 1);
+        assert!(gpass::get_freezed_amount(user2_addr) == 0, 1);
+        assert!(gpass::get_balance(user2_addr) == 40, 1);
+        assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
+        assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1, 1);
+        assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
+        assert!(gpass::get_total_users_freezed(core_addr) == 1, 1);
+
+        // User2 freeze and unfreeze tokens with unfreeze royalty
+        let now = now + 20 * 24 * 60 * 60;
+        timestamp::update_global_time_for_test_secs(now);
+
+        let user2_before_balance = coin::balance<GGWPCoin>(user2_addr);
+        let freeze_amount3 = 15000 * 100000000;
+        let royalty_amount3 = gpass::calc_royalty_amount(freeze_amount3, 8);
+        gpass::freeze_tokens(user2, core_addr, freeze_amount3);
+
+        assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_before_balance - freeze_amount3 - royalty_amount3), 1);
+        assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2 + royalty_amount3, 1);
+        assert!(gpass::get_freezed_amount(user2_addr) == freeze_amount3, 1);
+        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
+        assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1 + freeze_amount3, 1);
+        assert!(gpass::get_total_freezed(core_addr) == freeze_amount1 + freeze_amount3, 1);
+        assert!(gpass::get_total_users_freezed(core_addr) == 2, 1);
+
+        let unfreeze_royalty_amount = gpass::calc_royalty_amount(freeze_amount3, 15);
+        gpass::unfreeze(user2, core_addr);
+
+        assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_before_balance - royalty_amount3 - unfreeze_royalty_amount), 1);
+        assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2 + royalty_amount3 + unfreeze_royalty_amount, 1);
+        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
+        assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1, 1);
+        assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
+        assert!(gpass::get_total_users_freezed(core_addr) == 1, 1);
+    }
 }

@@ -19,7 +19,8 @@ module ggwp_core::gpass {
     const ERR_INVALID_PERIOD: u64 = 0x1021;
     const ERR_INVALID_ROYALTY: u64 = 0x1022;
     const ERR_ZERO_FREEZING_AMOUNT: u64 = 0x1023;
-    const ERR_ZERO_GPASS_EARNED: u64 = 0x1024;
+    const ERR_ZERO_UNFREEZE_AMOUNT: u64 = 0x1024;
+    const ERR_ZERO_GPASS_EARNED: u64 = 0x1025;
 
     /// Initialize module.
     public entry fun initialize(
@@ -118,11 +119,11 @@ module ggwp_core::gpass {
 
     /// Mint the amount of GPASS to user wallet.
     /// There is trying to burn overdues before minting.
-    public fun mint_to(ggwp_core: address, to: address, amount: u64) acquires Wallet, GpassInfo {
+    public fun mint_to(ggwp_core_addr: address, to: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(to), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
 
-        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         let wallet = borrow_global_mut<Wallet>(to);
 
         let now = timestamp::now_seconds();
@@ -136,14 +137,30 @@ module ggwp_core::gpass {
         gpass_info.total_amount = gpass_info.total_amount + amount;
     }
 
+    /// There is trying to burn overdues.
+    public fun try_burn_in_period(ggwp_core_addr: address, from: address) acquires Wallet, GpassInfo {
+        assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let wallet = borrow_global_mut<Wallet>(from);
+
+        let now = timestamp::now_seconds();
+        if (now - wallet.last_burned >= gpass_info.burn_period) {
+            gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
+            wallet.amount = 0;
+            wallet.last_burned = now;
+        };
+    }
+
     /// Burn the amount of GPASS from user wallet. Available only for burners.
     /// There is trying to burn overdues before burning.
-    public entry fun burn(burner: &signer, ggwp_core: address, from: address, amount: u64) acquires Wallet, GpassInfo {
+    public entry fun burn(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
-        assert!(exists<GpassInfo>(ggwp_core), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
-        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core);
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         // Note: burner is the ggwp_games contract.
         assert!(vector::contains(&gpass_info.burners, &signer::address_of(burner)), ERR_INVALID_BURN_AUTH);
 
@@ -296,6 +313,7 @@ module ggwp_core::gpass {
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
         let user_info = borrow_global_mut<UserInfo>(user_addr);
 
+        // Check users earned gpass
         let now = timestamp::now_seconds();
         let gpass_earned
             = calc_earned_gpass(
@@ -322,6 +340,65 @@ module ggwp_core::gpass {
         mint_to(ggwp_core_addr, user_addr, gpass_earned);
     }
 
+    // User unfreeze full amount of GGWP token.
+    public entry fun unfreeze(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, GpassInfo, Wallet {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        let user_addr = signer::address_of(user);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let user_info = borrow_global_mut<UserInfo>(user_addr);
+
+        assert!(user_info.freezed_amount != 0, ERR_ZERO_UNFREEZE_AMOUNT);
+
+        // Check users earned gpass
+        let now = timestamp::now_seconds();
+        let gpass_earned
+            = calc_earned_gpass(
+                &freezing_info.reward_table,
+                user_info.freezed_amount,
+                now,
+                user_info.last_getting_gpass,
+                freezing_info.reward_period
+        );
+
+        // Try to reset gpass daily reward
+        let spent_time = now - freezing_info.daily_gpass_reward_last_reset;
+        if (spent_time >= 24 * 60 * 60) {
+            freezing_info.daily_gpass_reward = 0;
+            freezing_info.daily_gpass_reward_last_reset = now;
+        };
+
+        if (gpass_earned > 0) {
+            freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
+            user_info.last_getting_gpass = now;
+            mint_to(ggwp_core_addr, user_addr, gpass_earned);
+        }
+        else {
+            try_burn_in_period(ggwp_core_addr, user_addr);
+        };
+
+        let amount = user_info.freezed_amount;
+        freezing_info.total_freezed = freezing_info.total_freezed - amount;
+        // Check unfreeze royalty
+        if (is_withdraw_royalty(now, user_info.freezed_time, freezing_info.unfreeze_lock_period) == true) {
+            let royalty_amount = calc_royalty_amount(amount, freezing_info.unfreeze_royalty);
+            // Transfer royalty_amount into accumulative fund from treasury
+            let royalty_coins = coin::extract(&mut freezing_info.treasury, royalty_amount);
+            coin::deposit(freezing_info.accumulative_fund, royalty_coins);
+            amount = amount - royalty_amount;
+        };
+
+        // Send GGWP tokens to user wallet
+        let amount_coins = coin::extract(&mut freezing_info.treasury, amount);
+        coin::deposit(user_addr, amount_coins);
+
+        freezing_info.total_users_freezed = freezing_info.total_users_freezed - 1;
+        user_info.freezed_amount = 0;
+        user_info.freezed_time = 0;
+    }
+
     // Freezing Getters.
 
     public fun get_treasury_balance(ggwp_core_addr: address): u64 acquires FreezingInfo {
@@ -337,6 +414,10 @@ module ggwp_core::gpass {
 
     public fun get_last_getting_gpass(user_addr: address): u64 acquires UserInfo {
         borrow_global<UserInfo>(user_addr).last_getting_gpass
+    }
+
+    public fun get_freezed_amount(user_addr: address): u64 acquires UserInfo {
+        borrow_global<UserInfo>(user_addr).freezed_amount
     }
 
     public fun get_reward_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
@@ -408,6 +489,15 @@ module ggwp_core::gpass {
 
     public fun calc_royalty_amount(freezed_amount: u64, royalty: u8): u64 {
         freezed_amount / 100 * (royalty as u64)
+    }
+
+    /// Checks freezed time for withdraw royalty.
+    public fun is_withdraw_royalty(current_time: u64, freezed_time: u64, unfreeze_lock_period: u64): bool {
+        let spent_time = current_time - freezed_time;
+        if (spent_time >= unfreeze_lock_period) {
+            return false
+        };
+        true
     }
 
     #[test_only]
