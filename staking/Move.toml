@@ -1,0 +1,11 @@
+[package]
+name = 'staking'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
+[dependencies]
+ggwpcoin = { local = "../ggwp_coin" }
+[addresses]
+staking = "0x1f19ab535bfa7a447c171607ab704c7aae226826502fdbe69d82a7a812ddbb51"
