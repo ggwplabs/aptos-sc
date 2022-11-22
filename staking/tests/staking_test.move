@@ -3,11 +3,20 @@ module staking::staking_test {
     use std::vector;
     use staking::staking::{
         get_epoch_by_time, get_apr_by_epoch, calc_user_past_epochs,
-        calc_user_reward_amount
+        calc_user_reward_amount, is_withdraw_royalty
     };
 
     const TIME: u64 = 1660032700;
     const DAY: u64 = 24 * 60 * 60;
+
+    #[test]
+    public entry fun is_withdraw_royalty_test() {
+        assert!(is_withdraw_royalty(1660032700, 1660032700, 100) == true, 1);
+        assert!(is_withdraw_royalty(1660032700, 1660032650, 100) == true, 1);
+        assert!(is_withdraw_royalty(1660032700, 1660032800, 100) == true, 1);
+        assert!(is_withdraw_royalty(1660032700, 1660032500, 100) == false, 1);
+        assert!(is_withdraw_royalty(1660032700, 1660032300, 100) == false, 1);
+    }
 
     #[test]
     public entry fun get_epoch_by_time_test() {
@@ -131,104 +140,54 @@ module staking::staking_test {
         assert!(calc_user_past_epochs(TIME, TIME + 35 * DAY, TIME + 70 * DAY, 10 * DAY) == vec, 1);
     }
 
-    // TODO: uncomment
-    // #[test]
-    // public fun calc_user_reward_amount_zero_epochs_test() {
-    //     let amount = 10000000000;
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME, TIME + 5 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 5 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 10 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 15 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 10 * DAY, TIME + 10 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 15 * DAY, TIME + 15 * DAY) == 0, 1);
-    //     assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 15 * DAY, TIME + 20 * DAY) == 0, 1);
-    // }
+    #[test]
+    public fun calc_user_reward_amount_zero_epochs_test() {
+        let amount = 10000000000;
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME, TIME + 5 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 5 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 10 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 5 * DAY, TIME + 15 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 10 * DAY, TIME + 10 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 15 * DAY, TIME + 15 * DAY) == 0, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME + 15 * DAY, TIME + 20 * DAY) == 0, 1);
+    }
 
     #[test]
     public fun calc_user_reward_amount_test() {
-        let amount = 1000000000;
+        let amount = 1000000000; // 10.0
+        // User rewards before epoch
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME, TIME + 5 * DAY) == 0, 1);
         // User rewards for first epoch
-        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME, TIME + 10 * DAY) == 2743106, 1); // 0.02743106
-
-        // // User stake in half epoch
-        // let amount = 10_000_000_000;
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 15 * DAY),
-        //     Ok(123973918)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 83, 1, 5, amount, TIME, TIME + 15 * DAY),
-        //     Ok(229738355)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 99, 1, 5, amount, TIME, TIME + 15 * DAY),
-        //     Ok(274567462)
-        // );
-
-        // // Amounts less than 1 GGWP
-        // let amount = 500_000_000; // 0.5
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY),
-        //     Ok(12334025)
-        // );
-
-        // let amount = 800; // 0.0000008
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY),
-        //     Ok(19)
-        // );
-
-        // // User stake in next epoch
-        // let amount = 19_000_000_000;
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY),
-        //     Ok(468692977)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 30 * DAY),
-        //     Ok(699269917)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 40 * DAY),
-        //     Ok(927123806)
-        // );
-
-        // // User stake in half next epoch
-        // let amount = 1299_500_000_000;
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 25 * DAY),
-        //     Ok(32056132852)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 35 * DAY),
-        //     Ok(47826381988)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 45 * DAY),
-        //     Ok(63410388776)
-        // );
-
-        // // Check min apr limit
-        // let amount = 5_000_000_000;
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 6, 1, 5, amount, TIME, TIME + 50 * DAY),
-        //     Ok(35741023)
-        // );
-
-        // // Big amounts check overflow
-        // println!("-----");
-        // let amount = 100000_000_000_000;
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 100 * DAY),
-        //     Ok(11727991191434)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 1000 * DAY),
-        //     Ok(43551067839644)
-        // );
-
-        // assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 100000 * DAY),
-        //     Ok(18446644073709551615)
-        // );
+        assert!(calc_user_reward_amount(DAY, TIME, 10, 1, 5, amount, TIME, TIME + DAY) == 273972, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 10, 1, 5, amount, TIME, TIME + 10 * DAY) == 2743105, 1); // 0.02743105
+        // User stake in half epoch
+        let amount = 1000000000;
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 15 * DAY) == 12397391, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 83, 1, 5, amount, TIME, TIME + 15 * DAY) == 22973835, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 99, 1, 5, amount, TIME, TIME + 15 * DAY) == 27456745, 1);
+        // Amounts less than 1 GGWP
+        let amount = 50000000; // 0.5
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY) == 1233402, 1);
+        let amount = 80; // 0.000008
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY) == 1, 1);
+        let amount = 800; // 0.00008
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY) == 19, 1);
+        // User stake in next epoch
+        let amount = 1900000000;
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 20 * DAY) == 46869294, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 30 * DAY) == 69926986, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 40 * DAY) == 92712373, 1);
+        // User stake in half next epoch
+        let amount = 129950000000;
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 25 * DAY) == 3205613072, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 35 * DAY) == 4782637807, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 45 * DAY) == 6341038356, 1);
+        // Check min apr limit
+        let amount = 500000000;
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 6, 1, 5, amount, TIME, TIME + 50 * DAY) == 3574100, 1);
+        // Big amounts check overflow
+        let amount = 10000000000000; // 100000.0
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 100 * DAY) == 1172799009396, 1);
+        assert!(calc_user_reward_amount(10 * DAY, TIME, 45, 1, 5, amount, TIME, TIME + 1000 * DAY) == 4355105852568, 1);
     }
 }
