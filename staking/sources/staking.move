@@ -17,6 +17,7 @@ module staking::staking {
     const ERR_ADDITIONAL_STAKE_NOT_ALLOWED: u64 = 0x1009;
     const ERR_UNKNOWN_APR_VAL: u64 = 0x1010;
     const ERR_NOTHING_TO_WITHDRAW: u64 = 0x1011;
+    const ERR_ZERO_DEPOSIT_AMOUNT: u64 = 0x1012;
 
     struct StakingInfo has key, store {
         accumulative_fund: address,
@@ -111,13 +112,23 @@ module staking::staking {
         staking_info.royalty = royalty;
     }
 
+    /// Deposit tokens to staking fund
+    public entry fun deposit_staking_fund(funder: &signer, staking_addr: address, amount: u64) acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
+        assert!(amount != 0, ERR_ZERO_DEPOSIT_AMOUNT);
+
+        let staking_info = borrow_global_mut<StakingInfo>(staking_addr);
+        let deposit_coins = coin::withdraw<GGWPCoin>(funder, amount);
+        coin::merge(&mut staking_info.staking_fund, deposit_coins);
+    }
+
     /// User can stake amount of GGWP to earn extra GGWP.
     public entry fun stake(user: &signer, staking_addr: address, amount: u64) acquires StakingInfo, UserInfo {
         let user_addr = signer::address_of(user);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
 
         let staking_info = borrow_global_mut<StakingInfo>(staking_addr);
-        assert!(amount > staking_info.min_stake_amount, ERR_MIN_STAKE_AMOUNT_EXCEEDED);
+        assert!(amount >= staking_info.min_stake_amount, ERR_MIN_STAKE_AMOUNT_EXCEEDED);
 
         if (!exists<UserInfo>(user_addr)) {
             let user_info = UserInfo {
@@ -135,8 +146,6 @@ module staking::staking {
         // Transfer royalty into accumulative fund.
         let royalty_amount = calc_royalty_amount(amount, staking_info.royalty);
         coin::transfer<GGWPCoin>(user, staking_info.accumulative_fund, royalty_amount);
-
-        let amount = amount - royalty_amount;
 
         // Transfer amount into staking_fund
         let amount_coins = coin::withdraw<GGWPCoin>(user, amount);
@@ -182,8 +191,10 @@ module staking::staking {
         };
 
         // Transfer GGWP reward to user from staking fund
-        let reward_coins = coin::extract(&mut staking_info.staking_fund, user_reward_amount);
-        coin::deposit(user_addr, reward_coins);
+        if (user_reward_amount != 0) {
+            let reward_coins = coin::extract(&mut staking_info.staking_fund, user_reward_amount);
+            coin::deposit(user_addr, reward_coins);
+        };
 
         // Transfer GGWP staked tokens to user from staking_fund
         let amount_coins = coin::extract(&mut staking_info.staking_fund, amount);
@@ -195,7 +206,103 @@ module staking::staking {
     }
 
     // Getters
-    // TODO: get_current_epoch (calculated)
+
+    public fun get_staking_fund_balance(staking_addr: address): u64 acquires StakingInfo {
+        let staking_info = borrow_global<StakingInfo>(staking_addr);
+        coin::value<GGWPCoin>(&staking_info.staking_fund)
+    }
+
+    public fun get_total_staked(staking_addr: address): u64 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).total_staked
+    }
+
+    public fun get_start_time(staking_addr: address): u64 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).start_time
+    }
+
+    public fun get_epoch_period(staking_addr: address): u64 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).epoch_period
+    }
+
+    public fun get_min_stake_amount(staking_addr: address): u64 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).min_stake_amount
+    }
+
+    public fun get_hold_period(staking_addr: address): u64 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).hold_period
+    }
+
+     public fun get_hold_royalty(staking_addr: address): u8 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).hold_royalty
+    }
+
+    public fun get_royalty(staking_addr: address): u8 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).royalty
+    }
+
+    public fun get_apr_start(staking_addr: address): u8 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).apr_start
+    }
+
+    public fun get_apr_step(staking_addr: address): u8 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).apr_step
+    }
+
+    public fun get_apr_end(staking_addr: address): u8 acquires StakingInfo {
+        borrow_global<StakingInfo>(staking_addr).apr_end
+    }
+
+    public fun get_staked(user_addr: address): u64 acquires UserInfo {
+        borrow_global<UserInfo>(user_addr).amount
+    }
+
+    public fun get_stake_time(user_addr: address): u64 acquires UserInfo {
+        borrow_global<UserInfo>(user_addr).stake_time
+    }
+
+    public fun get_epoch_for_time(staking_addr: address, time: u64): u64 acquires StakingInfo {
+        let staking_info = borrow_global<StakingInfo>(staking_addr);
+        let (epoch, _) = get_epoch_by_time(staking_info.start_time, time, staking_info.epoch_period);
+        epoch
+    }
+
+    public fun get_current_epoch(staking_addr: address): u64 acquires StakingInfo {
+        let staking_info = borrow_global<StakingInfo>(staking_addr);
+        let now = timestamp::now_seconds();
+        let (epoch, _) = get_epoch_by_time(staking_info.start_time, now, staking_info.epoch_period);
+        epoch
+    }
+
+    public fun get_user_unpaid_reward_for_time(staking_addr: address, user_addr: address, time: u64): u64 acquires StakingInfo, UserInfo {
+        let user_info = borrow_global<UserInfo>(user_addr);
+        let staking_info = borrow_global<StakingInfo>(staking_addr);
+        calc_user_reward_amount(
+            staking_info.epoch_period,
+            staking_info.start_time,
+            staking_info.apr_start,
+            staking_info.apr_step,
+            staking_info.apr_end,
+            user_info.amount,
+            user_info.stake_time,
+            time,
+        )
+    }
+
+    public fun get_user_unpaid_reward(staking_addr: address, user_addr: address): u64 acquires StakingInfo, UserInfo {
+        let user_info = borrow_global<UserInfo>(user_addr);
+        let staking_info = borrow_global<StakingInfo>(staking_addr);
+        let now = timestamp::now_seconds();
+        calc_user_reward_amount(
+            staking_info.epoch_period,
+            staking_info.start_time,
+            staking_info.apr_start,
+            staking_info.apr_step,
+            staking_info.apr_end,
+            user_info.amount,
+            user_info.stake_time,
+            now,
+        )
+    }
 
     // Utils
 
