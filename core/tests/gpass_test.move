@@ -1,7 +1,6 @@
 #[test_only]
 module ggwp_core::gpass_test {
     use std::signer;
-    use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::account::create_account_for_test;
     use aptos_framework::coin::{Self};
@@ -20,15 +19,12 @@ module ggwp_core::gpass_test {
         create_account_for_test(core_addr);
         create_account_for_test(ac_fund_addr);
 
-        let reward_table: vector<gpass::RewardTableRow> = vector::empty();
-        let burners: vector<address> = vector::empty();
-
-        gpass::initialize(core_signer, ac_fund_addr, 5000, burners, 5000, 8, 15, 300, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, 5000, 5000, 8, 15, 300);
         assert!(gpass::get_total_amount(core_addr) == 0, 1);
         assert!(gpass::get_burn_period(core_addr) == 5000, 2);
 
         // Try to initialize twice
-        gpass::initialize(core_signer, ac_fund_addr, 6000, burners, 5000, 8, 15, 300, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, 6000, 5000, 8, 15, 300);
     }
 
     #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222)]
@@ -39,9 +35,7 @@ module ggwp_core::gpass_test {
         let core_addr = signer::address_of(core_signer);
         create_account_for_test(core_addr);
 
-        let reward_table: vector<gpass::RewardTableRow> = vector::empty();
-        let burners: vector<address> = vector::empty();
-        gpass::initialize(core_signer, ac_fund_addr, 5000, burners, 7000, 8, 15, 300, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, 5000, 7000, 8, 15, 300);
         assert!(gpass::get_total_amount(core_addr) == 0, 1);
         assert!(gpass::get_burn_period(core_addr) == 5000, 2);
 
@@ -53,21 +47,11 @@ module ggwp_core::gpass_test {
         let new_royalty = 20;
         let new_unfreeze_royalty = 40;
         let new_unfreeze_lock_period = 600;
-        gpass::update_freezing_params(core_signer, new_reward_period, new_royalty, new_unfreeze_royalty, new_unfreeze_lock_period, reward_table);
+        gpass::update_freezing_params(core_signer, new_reward_period, new_royalty, new_unfreeze_royalty, new_unfreeze_lock_period);
         assert!(gpass::get_reward_period(core_addr) == new_reward_period, 4);
         assert!(gpass::get_royalty(core_addr) == new_royalty, 5);
         assert!(gpass::get_unfreeze_royalty(core_addr) == new_unfreeze_royalty, 6);
         assert!(gpass::get_unfreeze_lock_period(core_addr) == new_unfreeze_lock_period, 7);
-
-        let new_reward_table: vector<gpass::RewardTableRow> = vector::empty();
-        vector::push_back(&mut new_reward_table, gpass::construct_row(5000 * 100000000, 5));
-        vector::push_back(&mut new_reward_table, gpass::construct_row(10000 * 100000000, 10));
-        vector::push_back(&mut new_reward_table, gpass::construct_row(15000 * 100000000, 15));
-        gpass::update_freezing_params(core_signer, new_reward_period, new_royalty, new_unfreeze_royalty, new_unfreeze_lock_period, new_reward_table);
-
-        let reward_table = gpass::get_reward_table(core_addr);
-        assert!(vector::length(&reward_table) == vector::length(&new_reward_table), 8);
-        assert!(reward_table == new_reward_table, 9);
     }
 
     #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222, user = @0x11)]
@@ -83,9 +67,7 @@ module ggwp_core::gpass_test {
 
         let now = timestamp::now_seconds();
         let burn_period = 300;
-        let reward_table: vector<gpass::RewardTableRow> = vector::empty();
-        let burners: vector<address> = vector::empty();
-        gpass::initialize(core_signer, ac_fund_addr, burn_period, burners, 7000, 8, 15, 300, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, burn_period, 7000, 8, 15, 300);
 
         gpass::create_wallet(user);
         assert!(gpass::get_balance(user_addr) == 0, 1);
@@ -122,9 +104,7 @@ module ggwp_core::gpass_test {
 
         let now = timestamp::now_seconds();
         let burn_period = 300;
-        let reward_table: vector<gpass::RewardTableRow> = vector::empty();
-        let burners: vector<address> = vector::empty();
-        gpass::initialize(core_signer, ac_fund_addr, burn_period, burners, 7000, 8, 15, 300, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, burn_period, 7000, 8, 15, 300);
         gpass::add_burner(core_signer, burner_addr);
 
         gpass::create_wallet(user1);
@@ -190,9 +170,10 @@ module ggwp_core::gpass_test {
         let burn_period = 4 * 24 * 60 * 60;
         let reward_period = 24 * 60 * 60;
         let unfreeze_lock_period = 2 * 24 * 60 * 60;
-        let reward_table: vector<gpass::RewardTableRow> = gpass::get_test_reward_table();
-        let burners: vector<address> = vector::empty();
-        gpass::initialize(core_signer, ac_fund_addr, burn_period, burners, reward_period, 8, 15, unfreeze_lock_period, reward_table);
+        gpass::initialize(core_signer, ac_fund_addr, burn_period, reward_period, 8, 15, unfreeze_lock_period);
+        gpass::add_reward_table_row(core_signer, 5000 * 100000000, 5);
+        gpass::add_reward_table_row(core_signer, 10000 * 100000000, 10);
+        gpass::add_reward_table_row(core_signer, 15000 * 100000000, 15);
 
         gpass::create_wallet(user1);
         gpass::create_wallet(user2);
