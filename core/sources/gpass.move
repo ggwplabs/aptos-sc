@@ -15,6 +15,7 @@ module ggwp_core::gpass {
     const ERR_WALLET_NOT_INITIALIZED: u64 = 0x1012;
     const ERR_INVALID_AMOUNT: u64 = 0x1013;
     const ERR_INVALID_BURN_AUTH: u64 = 0x1014;
+    const ERR_BURNER_NOT_IN_LIST: u64 = 0x1015;
     // Freezing errors.
     const ERR_INVALID_PERIOD: u64 = 0x1021;
     const ERR_INVALID_ROYALTY: u64 = 0x1022;
@@ -93,7 +94,16 @@ module ggwp_core::gpass {
         vector::push_back(&mut gpass_info.burners, burner);
     }
 
-    // TODO: remove_burner
+    /// Removing the burner address from burner list.
+    public entry fun remove_burner(ggwp_core: &signer, burner: address) acquires GpassInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let (in_list, index) = vector::index_of(&gpass_info.burners, &burner);
+        assert!(in_list, ERR_BURNER_NOT_IN_LIST);
+        vector::swap_remove(&mut gpass_info.burners, index);
+    }
 
     /// Update burn period.
     public entry fun update_burn_period(ggwp_core: &signer, burn_period: u64) acquires GpassInfo {
@@ -191,6 +201,10 @@ module ggwp_core::gpass {
 
     public fun get_last_burned(wallet: address): u64 acquires Wallet {
         borrow_global<Wallet>(wallet).last_burned
+    }
+
+    public fun get_burners_list(ggwp_core_addr: address): vector<address> acquires GpassInfo {
+        borrow_global<GpassInfo>(ggwp_core_addr).burners
     }
 
     // Freezing

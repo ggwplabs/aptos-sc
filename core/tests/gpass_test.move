@@ -1,6 +1,7 @@
 #[test_only]
 module ggwp_core::gpass_test {
     use std::signer;
+    use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::account::create_account_for_test;
     use aptos_framework::coin::{Self};
@@ -52,6 +53,30 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_royalty(core_addr) == new_royalty, 5);
         assert!(gpass::get_unfreeze_royalty(core_addr) == new_unfreeze_royalty, 6);
         assert!(gpass::get_unfreeze_lock_period(core_addr) == new_unfreeze_lock_period, 7);
+
+        let burner1 = @0x111222;
+        let burner2 = @0x111333;
+        let burner3 = @0x111444;
+
+        gpass::add_burner(core_signer, burner1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner1) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner2) == false, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner3) == false, 1);
+
+        gpass::add_burner(core_signer, burner2);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner1) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner2) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner3) == false, 1);
+
+        gpass::add_burner(core_signer, burner3);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner1) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner2) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner3) == true, 1);
+
+        gpass::remove_burner(core_signer, burner1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner1) == false, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner2) == true, 1);
+        assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner3) == true, 1);
     }
 
     #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222, user = @0x11)]
