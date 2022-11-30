@@ -15,6 +15,7 @@ module ggwp_core::gpass {
     const ERR_WALLET_NOT_INITIALIZED: u64 = 0x1012;
     const ERR_INVALID_AMOUNT: u64 = 0x1013;
     const ERR_INVALID_BURN_AUTH: u64 = 0x1014;
+    const ERR_BURNER_NOT_IN_LIST: u64 = 0x1015;
     // Freezing errors.
     const ERR_INVALID_PERIOD: u64 = 0x1021;
     const ERR_INVALID_ROYALTY: u64 = 0x1022;
@@ -27,12 +28,10 @@ module ggwp_core::gpass {
         ggwp_core: &signer,
         accumulative_fund: address,
         burn_period: u64,
-        burners: vector<address>,
         reward_period: u64,
         royalty: u8,
         unfreeze_royalty: u8,
         unfreeze_lock_period: u64,
-        reward_table: vector<RewardTableRow>,
     ) {
         let ggwp_core_addr = signer::address_of(ggwp_core);
         assert!(!exists<GpassInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
@@ -46,7 +45,7 @@ module ggwp_core::gpass {
         let gpass_info = GpassInfo {
             burn_period: burn_period,
             total_amount: 0,
-            burners: burners,
+            burners: vector::empty<address>(),
         };
         move_to(ggwp_core, gpass_info);
 
@@ -65,7 +64,7 @@ module ggwp_core::gpass {
             unfreeze_royalty: unfreeze_royalty,
             unfreeze_lock_period: unfreeze_lock_period,
 
-            reward_table: reward_table,
+            reward_table: vector::empty<RewardTableRow>(),
         };
         move_to(ggwp_core, freezing_info);
     }
@@ -93,6 +92,17 @@ module ggwp_core::gpass {
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         vector::push_back(&mut gpass_info.burners, burner);
+    }
+
+    /// Removing the burner address from burner list.
+    public entry fun remove_burner(ggwp_core: &signer, burner: address) acquires GpassInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let (in_list, index) = vector::index_of(&gpass_info.burners, &burner);
+        assert!(in_list, ERR_BURNER_NOT_IN_LIST);
+        vector::swap_remove(&mut gpass_info.burners, index);
     }
 
     /// Update burn period.
@@ -193,6 +203,10 @@ module ggwp_core::gpass {
         borrow_global<Wallet>(wallet).last_burned
     }
 
+    public fun get_burners_list(ggwp_core_addr: address): vector<address> acquires GpassInfo {
+        borrow_global<GpassInfo>(ggwp_core_addr).burners
+    }
+
     // Freezing
     /// Reward table row.
     struct RewardTableRow has store, drop, copy {
@@ -225,6 +239,28 @@ module ggwp_core::gpass {
         last_getting_gpass: u64, // UnixTimestamp
     }
 
+    /// Clean up reward table
+    public entry fun cleanup_reward_table(ggwp_core: &signer) acquires FreezingInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        freezing_info.reward_table = vector::empty<RewardTableRow>();
+    }
+
+    /// Set up new reward table row
+    public entry fun add_reward_table_row(ggwp_core: &signer, ggwp_amount: u64, gpass_amount: u64) acquires FreezingInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let row = RewardTableRow {
+            ggwp_amount: ggwp_amount,
+            gpass_amount: gpass_amount,
+        };
+        vector::push_back(&mut freezing_info.reward_table, row);
+    }
+
     /// Update freezing parameters.
     public entry fun update_freezing_params(
         ggwp_core: &signer,
@@ -232,7 +268,6 @@ module ggwp_core::gpass {
         royalty: u8,
         unfreeze_royalty: u8,
         unfreeze_lock_period: u64,
-        reward_table: vector<RewardTableRow>,
     ) acquires FreezingInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
@@ -246,7 +281,6 @@ module ggwp_core::gpass {
         freezing_info.royalty = royalty;
         freezing_info.unfreeze_royalty = unfreeze_royalty;
         freezing_info.unfreeze_lock_period = unfreeze_lock_period;
-        freezing_info.reward_table = reward_table;
     }
 
     /// User freezes his amount of GGWP token to get the GPASS.

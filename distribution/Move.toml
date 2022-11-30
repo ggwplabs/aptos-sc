@@ -1,5 +1,5 @@
 [package]
-name = 'ggwp_core'
+name = 'accumulative_fund'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
@@ -8,4 +8,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = "../ggwp_coin" }
 [addresses]
-ggwp_core = "0x95cb32b5f2f352617b6a84cd6e33e43d84e96b45a70fe6832ee88822aefb2e9c"
+accumulative_fund = "0x265a3274fadb17284cef3887f6779741ede442f5e5ab123c1cf63253c73f0686"
