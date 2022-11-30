@@ -1,26 +1,68 @@
+REGENERATE_KEYS="OFF" # ON/OFF
 AIRDROP="OFF" # ON/OFF
 PUBLISH="OFF" # ON/OFF
 FAUCET_INIT="OFF" # ON/OFF
 STAKING_INIT="OFF" # ON/OFF
-CORE_INIT="ON" # ON/OFF
+CORE_INIT="OFF" # ON/OFF
+GAMES_INIT="OFF" # ON/OFF
+FUNDS_REGISTER="OFF" # ON/OFF
+DISTRIBUTION_INIT="OFF" # ON/OFF
 
-FAUCET="0xf1a9e4828f80ac6c7c64590a450fca0763f30f5dac6883e2647ec52e55897bd6"
+if [[ $REGENERATE_KEYS == "ON" ]]
+then
+    echo "Regenarate keys..."
+    aptos init --network devnet --profile core --assume-yes
+    aptos init --network devnet --profile faucet --assume-yes
+    aptos init --network devnet --profile coin --assume-yes
+    aptos init --network devnet --profile staking --assume-yes
+    aptos init --network devnet --profile games --assume-yes
+    aptos init --network devnet --profile distribution --assume-yes
+    aptos init --network devnet --profile company_fund --assume-yes
+    aptos init --network devnet --profile team_fund --assume-yes
+fi
+
+function parse_yaml {
+   local prefix=$2
+   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+   sed -ne "s|^\($s\):|\1|" \
+        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+   awk -F$fs '{
+      indent = length($1)/2;
+      vname[indent] = $2;
+      for (i in vname) {if (i > indent) {delete vname[i]}}
+      if (length($3) > 0) {
+         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+      }
+   }'
+}
+
+parse_yaml .aptos/config.yaml > keys.sh
+source keys.sh
+
+FAUCET="0x$profiles_faucet_account"
 FAUCET_CREATE="$FAUCET::faucet::create_faucet"
 
-GGWP="0x57de268d237c952d9598180e90c751f1d5831358bf644d8750f455310961d86f"
+GGWP="0x$profiles_coin_account"
 GGWP_COIN_STRUCT="$GGWP::ggwp::GGWPCoin"
 GGWP_REGISTER="$GGWP::ggwp::register"
 GGWP_MINT_TO="$GGWP::ggwp::mint_to"
 
-STAKING="0x1f19ab535bfa7a447c171607ab704c7aae226826502fdbe69d82a7a812ddbb51"
+STAKING="0x$profiles_staking_account"
 STAKING_INITIALIZE="$STAKING::staking::initialize"
 
-GGWP_CORE="0x95cb32b5f2f352617b6a84cd6e33e43d84e96b45a70fe6832ee88822aefb2e9c"
+GGWP_CORE="0x$profiles_core_account"
 GGWP_CORE_INITIALIZE="$GGWP_CORE::gpass::initialize"
 GGWP_CORE_ADD_REWARD_TABLE_ROW="$GGWP_CORE::gpass::add_reward_table_row"
 
-# accumualative fund
-ACCUMULATIVE_FUND="0x265a3274fadb17284cef3887f6779741ede442f5e5ab123c1cf63253c73f0686"
+ACCUMULATIVE_FUND="0x$profiles_distribution_account"
+DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
+
+PLAY_TO_EARN_FUND="0x$profiles_games_account"
+STAKING_FUND="0x$profiles_staking_account"
+COMPANY_FUND="0x$profiles_company_fund_account"
+TEAM_FUND="0x$profiles_team_fund_account"
 
 if [[ $AIRDROP == "ON" ]]
 then
@@ -30,7 +72,9 @@ then
     aptos account fund-with-faucet --account staking
     aptos account fund-with-faucet --account core
     aptos account fund-with-faucet --account distribution
-    # TODO: airdrop fighting sc
+    aptos account fund-with-faucet --account games
+    aptos account fund-with-faucet --account company_fund
+    aptos account fund-with-faucet --account team_fund
 fi
 
 if [[ $PUBLISH == "ON" ]]
@@ -49,7 +93,8 @@ then
 
     echo "Deploy accumulative fund distribution.."
     aptos move publish --profile distribution --package-dir distribution --assume-yes
-    # TODO: publish fighting sc
+
+    # TODO: publish games sc
 fi
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -109,4 +154,38 @@ then
     aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
 
     # TODO: set up burners games sc
+fi
+
+# if [[ $GAMES_INIT == "ON" ]]
+# then
+#     # TODO: games init
+# fi
+
+if [[ $FUNDS_REGISTER == "ON" ]]
+then
+    echo "Register accumulative fund"
+    aptos move run --function-id $GGWP_REGISTER --profile distribution --assume-yes
+    echo "Register play_to_earn fund"
+    aptos move run --function-id $GGWP_REGISTER --profile games --assume-yes
+    echo "Register staking fund"
+    aptos move run --function-id $GGWP_REGISTER --profile staking --assume-yes
+    echo "Register company fund"
+    aptos move run --function-id $GGWP_REGISTER --profile company_fund --assume-yes
+    echo "Register team fund"
+    aptos move run --function-id $GGWP_REGISTER --profile team_fund --assume-yes
+fi
+
+if [[ $DISTRIBUTION_INIT == "ON" ]]
+then
+    echo "Initialize distribution"
+    play_to_earn_fund="$PLAY_TO_EARN_FUND"
+    play_to_earn_fund_share=45
+    staking_fund="$STAKING_FUND"
+    staking_fund_share=40
+    company_fund="$COMPANY_FUND"
+    company_fund_share=5
+    team_fund="$TEAM_FUND"
+    team_fund_share=10
+    ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$staking_fund u8:$staking_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
+    aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
