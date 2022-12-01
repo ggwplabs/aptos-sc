@@ -4,7 +4,7 @@ module ggwp_core::gpass_test {
     use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::account::create_account_for_test;
-    use aptos_framework::coin::{Self};
+    use aptos_framework::coin;
     use aptos_framework::genesis;
 
     use ggwp_core::gpass;

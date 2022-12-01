@@ -16,6 +16,7 @@ module games::fighting {
     const ERR_NOT_ENOUGH_GPASS: u64 = 0x1005;
     const ERR_NOT_IN_GAME: u64 = 0x1006;
     const ERR_INVALID_ACTIONS_SIZE: u64 = 0x1007;
+    const ERR_EMPTY_PLAY_TO_EARN_FUND: u64 = 0x1008;
 
     struct FightingSettings has key, store {
         accumulative_fund: address,
@@ -30,7 +31,7 @@ module games::fighting {
         in_game_time: u64,
     }
 
-    struct IdentityAction has store {
+    struct IdentityAction has store, copy, drop {
         who: u8,
         action: u8,
     }
@@ -107,8 +108,10 @@ module games::fighting {
         let user_fighting_info = borrow_global_mut<UserFightingInfo>(user_addr);
         if (user_fighting_info.in_game == true && user_fighting_info.in_game_time != 0) {
             let spent_time = now - user_fighting_info.in_game_time;
-            assert!(spent_time < fighting_settings.afk_timeout, ERR_STILL_IN_GAME);
+            assert!(spent_time >= fighting_settings.afk_timeout, ERR_STILL_IN_GAME);
             user_fighting_info.in_game = false;
+            user_fighting_info.in_game_time = 0;
+            return
         };
 
         assert!(gpass::get_balance(user_addr) != 0, ERR_NOT_ENOUGH_GPASS);
@@ -150,6 +153,8 @@ module games::fighting {
         // if user Win
         if (game_result == 1) {
             let play_to_earn_fund_amount = coin::balance<GGWPCoin>(games_addr);
+            assert!(play_to_earn_fund_amount != 0, ERR_EMPTY_PLAY_TO_EARN_FUND);
+
             let reward_amount = calc_reward_amount(
                 play_to_earn_fund_amount,
                 gpass::get_total_users_freezed(ggwp_core_addr),
@@ -158,21 +163,63 @@ module games::fighting {
                 fighting_settings.gpass_daily_reward_coefficient,
             );
 
-            if (reward_amount > 0) {
-                let royalty_amount = calc_royalty_amount(reward_amount, fighting_settings.royalty);
-                // Transfer reward_amount - royalty_amount to user from play_to_earn_fund
-                coin::transfer<GGWPCoin>(games, user_addr, reward_amount - royalty_amount);
-                // Transfer royalty_amount to accumulative fund from play_to_earn_fund
-                coin::transfer<GGWPCoin>(games, fighting_settings.accumulative_fund, royalty_amount);
-            };
+            let royalty_amount = calc_royalty_amount(reward_amount, fighting_settings.royalty);
+            // Transfer reward_amount - royalty_amount to user from play_to_earn_fund
+            coin::transfer<GGWPCoin>(games, user_addr, reward_amount - royalty_amount);
+            // Transfer royalty_amount to accumulative fund from play_to_earn_fund
+            coin::transfer<GGWPCoin>(games, fighting_settings.accumulative_fund, royalty_amount);
         };
 
         // Set up user status
         user_fighting_info.in_game = false;
+        user_fighting_info.in_game_time = 0;
     }
 
     // Getters.
-    // TODO
+
+    public fun get_saved_games_len(games_addr: address): u64 acquires SavedGames {
+        let saved_games = borrow_global<SavedGames>(games_addr);
+        table_with_length::length(&saved_games.games)
+    }
+
+    public fun get_game_player_by_id(games_addr: address, game_id: u64): address acquires SavedGames {
+        let saved_games = borrow_global<SavedGames>(games_addr);
+        table_with_length::borrow(&saved_games.games, game_id).player
+    }
+
+    public fun get_game_result_by_id(games_addr: address, game_id: u64): u8 acquires SavedGames {
+        let saved_games = borrow_global<SavedGames>(games_addr);
+        table_with_length::borrow(&saved_games.games, game_id).result
+    }
+
+    public fun get_game_log_by_id(games_addr: address, game_id: u64): vector<IdentityAction> acquires SavedGames {
+        let saved_games = borrow_global<SavedGames>(games_addr);
+        table_with_length::borrow(&saved_games.games, game_id).actions_log
+    }
+
+    public fun get_in_game(user_addr: address): bool acquires UserFightingInfo {
+        borrow_global<UserFightingInfo>(user_addr).in_game
+    }
+
+    public fun get_in_game_time(user_addr: address): u64 acquires UserFightingInfo {
+        borrow_global<UserFightingInfo>(user_addr).in_game_time
+    }
+
+    public fun get_afk_timeout(games_addr: address): u64 acquires FightingSettings {
+        borrow_global<FightingSettings>(games_addr).afk_timeout
+    }
+
+    public fun get_reward_coefficient(games_addr: address): u64 acquires FightingSettings {
+        borrow_global<FightingSettings>(games_addr).reward_coefficient
+    }
+
+    public fun get_gpass_daily_reward_coefficient(games_addr: address): u64 acquires FightingSettings {
+        borrow_global<FightingSettings>(games_addr).gpass_daily_reward_coefficient
+    }
+
+    public fun get_royalty(games_addr: address): u8 acquires FightingSettings {
+        borrow_global<FightingSettings>(games_addr).royalty
+    }
 
     // Utils.
     const DECIMALS: u64 = 100000000;
@@ -201,5 +248,18 @@ module games::fighting {
     /// Get the percent value.
     public fun calc_royalty_amount(amount: u64, royalty: u8): u64 {
         amount / 100 * (royalty as u64)
+    }
+
+    #[test_only]
+    public fun get_test_actions_log(size: u64): vector<IdentityAction> {
+        let actions_log: vector<IdentityAction> = vector::empty();
+        while (size != 0) {
+            vector::push_back(&mut actions_log, IdentityAction {
+                who: ((size % 2) as u8),
+                action: (size as u8),
+            });
+            size = size - 1;
+        };
+        actions_log
     }
 }
