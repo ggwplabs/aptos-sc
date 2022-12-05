@@ -47,7 +47,7 @@ module games::fighting {
     }
 
     /// Initialize fighting settings.
-    public fun initialize(games: &signer,
+    public entry fun initialize(games: &signer,
         accumulative_fund: address,
         afk_timeout: u64,
         reward_coefficient: u64,
@@ -74,7 +74,7 @@ module games::fighting {
         move_to(games, saved_games);
     }
 
-    public fun update_params(games: &signer,
+    public entry fun update_params(games: &signer,
         afk_timeout: u64,
         reward_coefficient: u64,
         gpass_daily_reward_coefficient: u64,
@@ -91,7 +91,7 @@ module games::fighting {
     }
 
     /// User starts new game session and pays GPASS for it.
-    public fun start_game(user: &signer, games_addr: address, ggwp_core_addr: address) acquires FightingSettings, UserFightingInfo {
+    public entry fun start_game(user: &signer, games_addr: address, ggwp_core_addr: address) acquires FightingSettings, UserFightingInfo {
         assert!(exists<FightingSettings>(games_addr), ERR_NOT_INITIALIZED);
         let fighting_settings = borrow_global<FightingSettings>(games_addr);
 
@@ -124,7 +124,7 @@ module games::fighting {
     }
 
     /// User finalize the game.
-    public fun finalize_game(games: &signer,
+    public entry fun finalize_game(games: &signer,
         user_addr: address,
         ggwp_core_addr: address,
         game_id: u64,
