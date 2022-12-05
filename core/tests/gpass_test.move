@@ -4,7 +4,7 @@ module ggwp_core::gpass_test {
     use std::vector;
     use aptos_framework::timestamp;
     use aptos_framework::account::create_account_for_test;
-    use aptos_framework::coin::{Self};
+    use aptos_framework::coin;
     use aptos_framework::genesis;
 
     use ggwp_core::gpass;
@@ -147,17 +147,20 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_balance(user2_addr) == 15, 7);
         assert!(gpass::get_total_amount(core_addr) == 25, 8);
 
-        gpass::burn(burner, core_addr, user2_addr, 10);
+        gpass::burn_from(burner, core_addr, user2_addr, 10);
         assert!(gpass::get_balance(user2_addr) == 5, 9);
         assert!(gpass::get_total_amount(core_addr) == 15, 10);
 
+        gpass::burn(user1, core_addr, 2);
+        assert!(gpass::get_balance(user1_addr) == 8, 13);
+
         timestamp::update_global_time_for_test_secs(now + burn_period);
 
-        gpass::burn(burner, core_addr, user1_addr, 5);
+        gpass::burn_from(burner, core_addr, user1_addr, 3);
         assert!(gpass::get_balance(user1_addr) == 0, 11);
         assert!(gpass::get_total_amount(core_addr) == 5, 12);
 
-        gpass::burn(burner, core_addr, user2_addr, 5);
+        gpass::burn_from(burner, core_addr, user2_addr, 3);
         assert!(gpass::get_balance(user1_addr) == 0, 13);
         assert!(gpass::get_total_amount(core_addr) == 0, 14);
     }

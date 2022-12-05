@@ -1,12 +1,15 @@
-REGENERATE_KEYS="OFF" # ON/OFF
-AIRDROP="OFF" # ON/OFF
-PUBLISH="OFF" # ON/OFF
-FAUCET_INIT="OFF" # ON/OFF
-STAKING_INIT="OFF" # ON/OFF
-CORE_INIT="OFF" # ON/OFF
-GAMES_INIT="OFF" # ON/OFF
-FUNDS_REGISTER="OFF" # ON/OFF
-DISTRIBUTION_INIT="OFF" # ON/OFF
+REGENERATE_KEYS="OFF"
+
+AIRDROP="OFF"
+PUBLISH="OFF"
+
+FAUCET_INIT="OFF"
+STAKING_INIT="OFF"
+CORE_INIT="OFF"
+FIGHTING_INIT="OFF"
+
+FUNDS_REGISTER="OFF"
+DISTRIBUTION_INIT="OFF"
 
 if [[ $REGENERATE_KEYS == "ON" ]]
 then
@@ -21,23 +24,7 @@ then
     aptos init --network devnet --profile team_fund --assume-yes
 fi
 
-function parse_yaml {
-   local prefix=$2
-   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-   sed -ne "s|^\($s\):|\1|" \
-        -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-        -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
-   awk -F$fs '{
-      indent = length($1)/2;
-      vname[indent] = $2;
-      for (i in vname) {if (i > indent) {delete vname[i]}}
-      if (length($3) > 0) {
-         vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
-         printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
-      }
-   }'
-}
-
+source utils.sh
 parse_yaml .aptos/config.yaml > keys.sh
 source keys.sh
 
@@ -55,14 +42,26 @@ STAKING_INITIALIZE="$STAKING::staking::initialize"
 GGWP_CORE="0x$profiles_core_account"
 GGWP_CORE_INITIALIZE="$GGWP_CORE::gpass::initialize"
 GGWP_CORE_ADD_REWARD_TABLE_ROW="$GGWP_CORE::gpass::add_reward_table_row"
+GGWP_CORE_ADD_BURNER="$GGWP_CORE::gpass::add_burner"
 
 ACCUMULATIVE_FUND="0x$profiles_distribution_account"
 DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
+
+GAMES="0x$profiles_games_account"
+FIGHTING_INITIALIZE="$GAMES::fighting::initialize"
 
 PLAY_TO_EARN_FUND="0x$profiles_games_account"
 STAKING_FUND="0x$profiles_staking_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"
+
+# Update Move.toml files
+update_ggwp_core "$GGWP_CORE" "core/Move.toml"
+update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
+update_faucet "$FAUCET" "faucet/Move.toml"
+update_games "$GAMES" "games/Move.toml"
+update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
+update_staking "$STAKING" "staking/Move.toml"
 
 if [[ $AIRDROP == "ON" ]]
 then
@@ -94,7 +93,8 @@ then
     echo "Deploy accumulative fund distribution.."
     aptos move publish --profile distribution --package-dir distribution --assume-yes
 
-    # TODO: publish games sc
+    echo "Deploy games sc.."
+    aptos move publish --profile games --package-dir games --assume-yes
 fi
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -153,13 +153,23 @@ then
     ARGS="u64:1500000000000 u64:15"
     aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
 
-    # TODO: set up burners games sc
+    # Set burners
+    echo "Add games sc as burner"
+    ARGS="address:$GAMES"
+    aptos move run --function-id $GGWP_CORE_ADD_BURNER --args $ARGS --profile core --assume-yes
 fi
 
-# if [[ $GAMES_INIT == "ON" ]]
-# then
-#     # TODO: games init
-# fi
+if [[ $FIGHTING_INIT == "ON" ]]
+then
+    echo "Initialize fighting sc"
+    accumulative_fund=$ACCUMULATIVE_FUND
+    let afk_timeout=1*60*60
+    reward_coefficient=20000
+    gpass_daily_reward_coefficient=10
+    royalty=8
+    ARGS="address:$accumulative_fund u64:$afk_timeout u64:$reward_coefficient u64:$gpass_daily_reward_coefficient u8:$royalty"
+    aptos move run --function-id $FIGHTING_INITIALIZE --args $ARGS --profile games --assume-yes
+fi
 
 if [[ $FUNDS_REGISTER == "ON" ]]
 then

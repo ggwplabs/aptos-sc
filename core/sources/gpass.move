@@ -159,9 +159,34 @@ module ggwp_core::gpass {
         };
     }
 
+    /// User burn gpass amount from his wallet.
+    /// There is trying to burn overdues before burning.
+    public entry fun burn(user: &signer, ggwp_core_addr: address, amount: u64) acquires Wallet, GpassInfo {
+        let user_addr = signer::address_of(user);
+        assert!(exists<Wallet>(user_addr), ERR_WALLET_NOT_INITIALIZED);
+        assert!(amount != 0, ERR_INVALID_AMOUNT);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let wallet = borrow_global_mut<Wallet>(user_addr);
+
+        // Try to burn amount before mint
+        let now = timestamp::now_seconds();
+        if (now - wallet.last_burned >= gpass_info.burn_period) {
+            gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
+            wallet.amount = 0;
+            wallet.last_burned = now;
+        };
+
+        if (wallet.amount != 0) {
+            wallet.amount = wallet.amount - amount;
+            gpass_info.total_amount = gpass_info.total_amount - amount;
+        }
+    }
+
     /// Burn the amount of GPASS from user wallet. Available only for burners.
     /// There is trying to burn overdues before burning.
-    public entry fun burn(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo {
+    public entry fun burn_from(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
