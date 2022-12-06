@@ -1,10 +1,12 @@
 module accumulative_fund::distribution {
     use std::signer;
+    use std::error;
     use aptos_framework::timestamp;
     use aptos_framework::coin;
 
     use coin::ggwp::GGWPCoin;
 
+    const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
     const ERR_INVALID_SHARE: u64 = 0x1003;
@@ -34,6 +36,7 @@ module accumulative_fund::distribution {
         team_fund_share: u8,
     ) {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
+        assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(!exists<DistributionInfo>(accumulative_fund_addr), ERR_ALREADY_INITIALIZED);
         assert!(play_to_earn_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(staking_fund_share <= 100, ERR_INVALID_SHARE);
@@ -63,6 +66,7 @@ module accumulative_fund::distribution {
         team_fund_share: u8,
     ) acquires DistributionInfo {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
+        assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
         assert!(play_to_earn_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(staking_fund_share <= 100, ERR_INVALID_SHARE);
@@ -80,6 +84,7 @@ module accumulative_fund::distribution {
     /// Distribute the funds.
     public entry fun distribute(accumulative_fund: &signer) acquires DistributionInfo {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
+        assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
 
         let amount = coin::balance<GGWPCoin>(accumulative_fund_addr);

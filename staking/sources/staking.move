@@ -1,11 +1,13 @@
 module staking::staking {
     use std::signer;
     use std::vector;
+    use std::error;
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::timestamp;
 
     use coin::ggwp::GGWPCoin;
 
+    const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
     const ERR_INVALID_ROYALTY: u64 = 0x1003;
@@ -18,6 +20,7 @@ module staking::staking {
     const ERR_UNKNOWN_APR_VAL: u64 = 0x1010;
     const ERR_NOTHING_TO_WITHDRAW: u64 = 0x1011;
     const ERR_ZERO_DEPOSIT_AMOUNT: u64 = 0x1012;
+    const ERR_INVALID_PID: u64 = 0x1013;
 
     struct StakingInfo has key, store {
         accumulative_fund: address,
@@ -53,6 +56,7 @@ module staking::staking {
         apr_end: u8,
     ) {
         let staking_addr = signer::address_of(staking);
+        assert!(staking_addr == @staking, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(!exists<StakingInfo>(staking_addr), ERR_ALREADY_INITIALIZED);
 
         assert!(epoch_period != 0, ERR_INVALID_EPOCH_PERIOD);
@@ -94,6 +98,7 @@ module staking::staking {
         royalty: u8,
     ) acquires StakingInfo {
         let staking_addr = signer::address_of(staking);
+        assert!(staking_addr == @staking, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
 
         assert!(epoch_period != 0, ERR_INVALID_EPOCH_PERIOD);
@@ -114,6 +119,7 @@ module staking::staking {
 
     /// Deposit tokens to staking fund
     public entry fun deposit_staking_fund(funder: &signer, staking_addr: address, amount: u64) acquires StakingInfo {
+        assert!(staking_addr == @staking, ERR_INVALID_PID);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         assert!(amount != 0, ERR_ZERO_DEPOSIT_AMOUNT);
 
@@ -125,6 +131,7 @@ module staking::staking {
     /// User can stake amount of GGWP to earn extra GGWP.
     public entry fun stake(user: &signer, staking_addr: address, amount: u64) acquires StakingInfo, UserInfo {
         let user_addr = signer::address_of(user);
+        assert!(staking_addr == @staking, ERR_INVALID_PID);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
 
         let staking_info = borrow_global_mut<StakingInfo>(staking_addr);
@@ -160,6 +167,7 @@ module staking::staking {
     /// User can withdraw full amount of GGWP with extra reward.
     public entry fun withdraw(user: &signer, staking_addr: address) acquires StakingInfo, UserInfo {
         let user_addr = signer::address_of(user);
+        assert!(staking_addr == @staking, ERR_INVALID_PID);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
 

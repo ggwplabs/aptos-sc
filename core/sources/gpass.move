@@ -2,14 +2,17 @@
 module ggwp_core::gpass {
     use std::signer;
     use std::vector;
+    use std::error;
     use aptos_framework::timestamp;
     use aptos_framework::coin::{Self, Coin};
 
     use coin::ggwp::GGWPCoin;
 
     // Common errors.
+    const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
+    const ERR_INVALID_PID: u64 = 0x1003;
     // GPASS errors.
     const ERR_INVALID_BURN_PERIOD: u64 = 0x1011;
     const ERR_WALLET_NOT_INITIALIZED: u64 = 0x1012;
@@ -34,6 +37,7 @@ module ggwp_core::gpass {
         unfreeze_lock_period: u64,
     ) {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(!exists<GpassInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
         assert!(!exists<FreezingInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
 
@@ -88,6 +92,7 @@ module ggwp_core::gpass {
     /// Adding the new burner in burners list.
     public entry fun add_burner(ggwp_core: &signer, burner: address) acquires GpassInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
@@ -97,6 +102,7 @@ module ggwp_core::gpass {
     /// Removing the burner address from burner list.
     public entry fun remove_burner(ggwp_core: &signer, burner: address) acquires GpassInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
@@ -108,6 +114,7 @@ module ggwp_core::gpass {
     /// Update burn period.
     public entry fun update_burn_period(ggwp_core: &signer, burn_period: u64) acquires GpassInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
@@ -130,6 +137,7 @@ module ggwp_core::gpass {
     /// Mint the amount of GPASS to user wallet.
     /// There is trying to burn overdues before minting.
     public fun mint_to(ggwp_core_addr: address, to: address, amount: u64) acquires Wallet, GpassInfo {
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<Wallet>(to), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
 
@@ -165,6 +173,7 @@ module ggwp_core::gpass {
         let user_addr = signer::address_of(user);
         assert!(exists<Wallet>(user_addr), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
@@ -189,6 +198,7 @@ module ggwp_core::gpass {
     public entry fun burn_from(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
@@ -267,6 +277,7 @@ module ggwp_core::gpass {
     /// Clean up reward table
     public entry fun cleanup_reward_table(ggwp_core: &signer) acquires FreezingInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
@@ -276,6 +287,7 @@ module ggwp_core::gpass {
     /// Set up new reward table row
     public entry fun add_reward_table_row(ggwp_core: &signer, ggwp_amount: u64, gpass_amount: u64) acquires FreezingInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
@@ -295,6 +307,7 @@ module ggwp_core::gpass {
         unfreeze_lock_period: u64,
     ) acquires FreezingInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         assert!(reward_period != 0, ERR_INVALID_PERIOD);
@@ -310,6 +323,7 @@ module ggwp_core::gpass {
 
     /// User freezes his amount of GGWP token to get the GPASS.
     public entry fun freeze_tokens(user: &signer, ggwp_core_addr: address, freezed_amount: u64) acquires FreezingInfo, GpassInfo, UserInfo, Wallet {
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(freezed_amount != 0, ERR_ZERO_FREEZING_AMOUNT);
@@ -360,6 +374,7 @@ module ggwp_core::gpass {
 
     /// In every time user can withdraw GPASS earned.
     public entry fun withdraw_gpass(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, Wallet, GpassInfo {
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let user_addr = signer::address_of(user);
@@ -406,6 +421,7 @@ module ggwp_core::gpass {
 
     // User unfreeze full amount of GGWP token.
     public entry fun unfreeze(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, GpassInfo, Wallet {
+        assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let user_addr = signer::address_of(user);
