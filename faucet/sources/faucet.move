@@ -1,14 +1,17 @@
 module faucet::faucet {
     use std::signer;
+    use std::error;
     use aptos_framework::timestamp;
     use aptos_framework::coin::{Self, Coin};
 
+    const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     /// When Faucet already exists on account.
     const ERR_FAUCET_EXISTS: u64 = 0x1001;
     /// When Faucet doesn't exists on account.
     const ERR_FAUCET_NOT_EXISTS: u64 = 0x1002;
     /// When user already got coins and currently restricted to request more funds.
     const ERR_RESTRICTED: u64 = 0x1003;
+    const ERR_INVALID_PID: u64 = 0x1004;
 
     /// Faucet data.
     struct Faucet<phantom CoinType> has key {
@@ -29,6 +32,7 @@ module faucet::faucet {
     /// faucet_account must be funded witn CoinType first.
     public entry fun create_faucet<CoinType>(faucet_account: &signer, amount_to_deposit: u64, per_request: u64, period: u64) {
         let faucet_addr = signer::address_of(faucet_account);
+        assert!(faucet_addr == @faucet, error::permission_denied(ERR_NOT_AUTHORIZED));
         let deposit = coin::withdraw<CoinType>(faucet_account, amount_to_deposit);
 
         assert!(!exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_EXISTS);
@@ -42,10 +46,11 @@ module faucet::faucet {
 
     /// Change settings of faucet `CoinType`.
     public entry fun change_settings<CoinType>(faucet_account: &signer, per_request: u64, period: u64) acquires Faucet {
-        let faucer_addr = signer::address_of(faucet_account);
-        assert!(exists<Faucet<CoinType>>(faucer_addr), ERR_FAUCET_NOT_EXISTS);
+        let faucet_addr = signer::address_of(faucet_account);
+        assert!(faucet_addr == @faucet, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_NOT_EXISTS);
 
-        let faucet = borrow_global_mut<Faucet<CoinType>>(faucer_addr);
+        let faucet = borrow_global_mut<Faucet<CoinType>>(faucet_addr);
         faucet.per_request = per_request;
         faucet.period = period;
     }
@@ -53,6 +58,7 @@ module faucet::faucet {
     /// Deposits coins `CoinType` to faucet on `faucet` address, withdrawing funds from user balance.
     public entry fun deposit<CoinType>(account: &signer, faucet_addr: address, amount: u64) acquires Faucet {
         let coins = coin::withdraw<CoinType>(account, amount);
+        assert!(faucet_addr == @faucet, ERR_INVALID_PID);
         assert!(exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_NOT_EXISTS);
 
         let faucet = borrow_global_mut<Faucet<CoinType>>(faucet_addr);
@@ -63,6 +69,7 @@ module faucet::faucet {
     public entry fun request<CoinType>(user: &signer, faucet_addr: address) acquires Faucet, Restricted {
         let user_addr = signer::address_of(user);
 
+        assert!(faucet_addr == @faucet, ERR_INVALID_PID);
         assert!(exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_NOT_EXISTS);
 
         if (!coin::is_account_registered<CoinType>(user_addr)) {

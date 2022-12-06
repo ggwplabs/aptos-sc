@@ -1,6 +1,7 @@
 module games::fighting {
     use std::signer;
     use std::vector;
+    use std::error;
     use std::table_with_length;
     use std::table_with_length::TableWithLength;
     use aptos_framework::timestamp;
@@ -9,6 +10,7 @@ module games::fighting {
     use ggwp_core::gpass;
     use coin::ggwp::GGWPCoin;
 
+    const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
     const ERR_INVALID_AFK_TIMEOUT: u64 = 0x1003;
@@ -17,6 +19,7 @@ module games::fighting {
     const ERR_NOT_IN_GAME: u64 = 0x1006;
     const ERR_INVALID_ACTIONS_SIZE: u64 = 0x1007;
     const ERR_EMPTY_PLAY_TO_EARN_FUND: u64 = 0x1008;
+    const ERR_INVALID_PID: u64 = 0x1009;
 
     struct FightingSettings has key, store {
         accumulative_fund: address,
@@ -55,6 +58,7 @@ module games::fighting {
         royalty: u8,
     ) {
         let games_addr = signer::address_of(games);
+        assert!(games_addr == @games, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(!exists<FightingSettings>(games_addr), ERR_ALREADY_INITIALIZED);
 
         assert!(afk_timeout > 0, ERR_INVALID_AFK_TIMEOUT);
@@ -81,8 +85,9 @@ module games::fighting {
         royalty: u8,
     ) acquires FightingSettings {
         let games_addr = signer::address_of(games);
-        assert!(exists<FightingSettings>(games_addr), ERR_NOT_INITIALIZED);
 
+        assert!(exists<FightingSettings>(games_addr), ERR_NOT_INITIALIZED);
+        assert!(games_addr == @games, error::permission_denied(ERR_NOT_AUTHORIZED));
         let fighting_settings = borrow_global_mut<FightingSettings>(games_addr);
         fighting_settings.afk_timeout = afk_timeout;
         fighting_settings.reward_coefficient = reward_coefficient;
@@ -92,6 +97,7 @@ module games::fighting {
 
     /// User starts new game session and pays GPASS for it.
     public entry fun start_game(user: &signer, games_addr: address, ggwp_core_addr: address) acquires FightingSettings, UserFightingInfo {
+        assert!(games_addr == @games, ERR_INVALID_PID);
         assert!(exists<FightingSettings>(games_addr), ERR_NOT_INITIALIZED);
         let fighting_settings = borrow_global<FightingSettings>(games_addr);
 
@@ -132,6 +138,7 @@ module games::fighting {
         actions_log: vector<IdentityAction>
     ) acquires FightingSettings, UserFightingInfo, SavedGames {
         let games_addr = signer::address_of(games);
+        assert!(games_addr == @games, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<FightingSettings>(games_addr), ERR_NOT_INITIALIZED);
         assert!(exists<SavedGames>(games_addr), ERR_NOT_INITIALIZED);
         assert!(exists<UserFightingInfo>(user_addr), ERR_NOT_INITIALIZED);
