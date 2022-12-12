@@ -15,6 +15,12 @@ function parse_yaml {
    }'
 }
 
+function get_balance {
+    local account=$1
+    local balance=`aptos account list --query balance --account $account | python3 -c "import sys, json; print(json.load(sys.stdin)['Result'][0]['coin']['value'])"`
+    echo $balance
+}
+
 function update_ggwp_core {
     local file_content="[package]
 name = 'ggwp_core'

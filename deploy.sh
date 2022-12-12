@@ -11,21 +11,25 @@ FIGHTING_INIT="OFF"
 FUNDS_REGISTER="OFF"
 DISTRIBUTION_INIT="OFF"
 
+config_path=".aptos/config.yaml"
+
 if [[ $REGENERATE_KEYS == "ON" ]]
 then
     echo "Regenarate keys..."
-    aptos init --network devnet --profile core --assume-yes
-    aptos init --network devnet --profile faucet --assume-yes
-    aptos init --network devnet --profile coin --assume-yes
-    aptos init --network devnet --profile staking --assume-yes
-    aptos init --network devnet --profile games --assume-yes
-    aptos init --network devnet --profile distribution --assume-yes
-    aptos init --network devnet --profile company_fund --assume-yes
-    aptos init --network devnet --profile team_fund --assume-yes
+    rm $config_path
+    yes "" | aptos init --network devnet --assume-yes
+    yes "" | aptos init --network devnet --profile core --assume-yes
+    yes "" | aptos init --network devnet --profile faucet --assume-yes
+    yes "" | aptos init --network devnet --profile coin --assume-yes
+    yes "" | aptos init --network devnet --profile staking --assume-yes
+    yes "" | aptos init --network devnet --profile games --assume-yes
+    yes "" | aptos init --network devnet --profile distribution --assume-yes
+    yes "" | aptos init --network devnet --profile company_fund --assume-yes
+    yes "" | aptos init --network devnet --profile team_fund --assume-yes
 fi
 
 source utils.sh
-parse_yaml .aptos/config.yaml > keys.sh
+parse_yaml $config_path > keys.sh
 source keys.sh
 
 FAUCET="0x$profiles_faucet_account"
@@ -66,15 +70,46 @@ update_staking "$STAKING" "staking/Move.toml"
 if [[ $AIRDROP == "ON" ]]
 then
     echo "Airdropping..."
-    aptos account fund-with-faucet --account coin
-    aptos account fund-with-faucet --account faucet
-    aptos account fund-with-faucet --account staking
-    aptos account fund-with-faucet --account core
-    aptos account fund-with-faucet --account distribution
-    aptos account fund-with-faucet --account games
-    aptos account fund-with-faucet --account company_fund
-    aptos account fund-with-faucet --account team_fund
+    for ((i=0; i < 8; i++))
+    do
+        aptos account fund-with-faucet --account coin --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account faucet --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account staking --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account core --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account distribution --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account games --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account company_fund --faucet-url https://faucet.devnet.aptoslabs.com
+        aptos account fund-with-faucet --account team_fund --faucet-url https://faucet.devnet.aptoslabs.com
+    done
 fi
+
+echo "------------------------------"
+echo "Initial balances:"
+
+coin_initial_balance=$(get_balance coin)
+echo "coin: $coin_initial_balance"
+
+faucet_initial_balance=$(get_balance faucet)
+echo "faucet: $faucet_initial_balance"
+
+staking_initial_balance=$(get_balance staking)
+echo "staking: $staking_initial_balance"
+
+core_initial_balance=$(get_balance core)
+echo "core: $core_initial_balance"
+
+distribution_initial_balance=$(get_balance distribution)
+echo "distribution: $distribution_initial_balance"
+
+games_initial_balance=$(get_balance games)
+echo "games: $games_initial_balance"
+
+company_fund_initial_balance=$(get_balance company_fund)
+echo "company_fund: $company_fund_initial_balance"
+
+team_fund_initial_balance=$(get_balance team_fund)
+echo "team_fund: $team_fund_initial_balance"
+echo "------------------------------"
 
 if [[ $PUBLISH == "ON" ]]
 then
@@ -96,6 +131,34 @@ then
     echo "Deploy games sc.."
     aptos move publish --profile games --package-dir games --assume-yes
 fi
+
+echo "------------------------------"
+echo "Publish cost:"
+
+coin_balance=$(get_balance coin)
+let coin_cost=$coin_initial_balance-$coin_balance
+echo "coin: $coin_cost"
+
+faucet_balance=$(get_balance faucet)
+let faucet_cost=$faucet_initial_balance-$faucet_balance
+echo "faucet: $faucet_cost"
+
+staking_balance=$(get_balance staking)
+let staking_cost=$staking_initial_balance-$staking_balance
+echo "staking: $staking_cost"
+
+core_balance=$(get_balance core)
+let core_cost=$core_initial_balance-$core_balance
+echo "core: $core_cost"
+
+distribution_balance=$(get_balance distribution)
+let distribution_cost=$distribution_initial_balance-$distribution_balance
+echo "distribution: $distribution_cost"
+
+games_balance=$(get_balance games)
+let games_cost=$games_initial_balance-$games_balance
+echo "games: $games_cost"
+echo "------------------------------"
 
 if [[ $FAUCET_INIT == "ON" ]]
 then
@@ -199,3 +262,39 @@ then
     ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$staking_fund u8:$staking_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
     aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
+
+echo "------------------------------"
+echo "Publish and initialize cost:"
+
+coin_balance=$(get_balance coin)
+let coin_cost=$coin_initial_balance-$coin_balance
+echo "coin: $coin_cost"
+
+faucet_balance=$(get_balance faucet)
+let faucet_cost=$faucet_initial_balance-$faucet_balance
+echo "faucet: $faucet_cost"
+
+staking_balance=$(get_balance staking)
+let staking_cost=$staking_initial_balance-$staking_balance
+echo "staking: $staking_cost"
+
+core_balance=$(get_balance core)
+let core_cost=$core_initial_balance-$core_balance
+echo "core: $core_cost"
+
+distribution_balance=$(get_balance distribution)
+let distribution_cost=$distribution_initial_balance-$distribution_balance
+echo "distribution: $distribution_cost"
+
+games_balance=$(get_balance games)
+let games_cost=$games_initial_balance-$games_balance
+echo "games: $games_cost"
+
+company_fund_balance=$(get_balance company_fund)
+let company_fund_cost=$company_fund_initial_balance-$company_fund_balance
+echo "company_fund: $company_fund_cost"
+
+team_fund_balance=$(get_balance team_fund)
+let team_fund_cost=$team_fund_initial_balance-$team_fund_balance
+echo "team_fund: $team_fund_cost"
+echo "------------------------------"
