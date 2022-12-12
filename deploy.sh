@@ -290,11 +290,11 @@ games_balance=$(get_balance games)
 let games_cost=$games_initial_balance-$games_balance
 echo "games: $games_cost"
 
-company_fund_balance=$(get_balance games)
+company_fund_balance=$(get_balance company_fund)
 let company_fund_cost=$company_fund_initial_balance-$company_fund_balance
 echo "company_fund: $company_fund_cost"
 
-team_fund_balance=$(get_balance games)
+team_fund_balance=$(get_balance team_fund)
 let team_fund_cost=$team_fund_initial_balance-$team_fund_balance
 echo "team_fund: $team_fund_cost"
 echo "------------------------------"
