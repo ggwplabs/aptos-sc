@@ -6,6 +6,7 @@
 **/.env
 **/__pycache__
 
+.DS_Store
 faucet/*.sh
 GGWPCoin/*.sh
 keys.sh
