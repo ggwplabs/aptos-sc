@@ -1,5 +1,6 @@
 **/.aptos
 **/build
+**/target
 **/.idea
 **/.vscode
 **/.venv
