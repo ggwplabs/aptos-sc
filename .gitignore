@@ -11,3 +11,4 @@
 faucet/*.sh
 GGWPCoin/*.sh
 keys.sh
+*.json
