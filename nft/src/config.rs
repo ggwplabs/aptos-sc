@@ -28,6 +28,8 @@ pub struct CollectionConfig {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RoyaltyConfig {
     pub royalty_payee_address: String,
+    // royalty = price * fee_numerator / fee_denominator
+    // assert!(royalty_points_numerator <= royalty_points_denominator)
     pub royalty_points_denominator: u64,
     pub royalty_points_numerator: u64,
 }

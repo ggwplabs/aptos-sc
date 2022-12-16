@@ -2,6 +2,9 @@ use crate::config::{RoyaltyConfig, SenderConfig};
 use anyhow::{Context, Result};
 use aptos_sdk::coin_client::CoinClient;
 use aptos_sdk::crypto::ed25519::Ed25519PrivateKey;
+use aptos_sdk::transaction_builder::aptos_stdlib::aptos_token_stdlib::{
+    token_create_token_script, token_transfers_claim_script, token_transfers_offer_script,
+};
 use aptos_sdk::{
     bcs,
     move_types::{identifier::Identifier, language_storage::ModuleId},
@@ -129,33 +132,24 @@ impl TokenClient {
             .get_account_balance(&self.sender.address())
             .await?;
 
-        let empty_vec: Vec<String> = Vec::new();
-        let token_address = AccountAddress::from_str("0x03").expect("Token addr parse error");
+        let royalty_payee_address =
+            AccountAddress::from_str(&royalty.royalty_payee_address).expect("Err parse addr");
         let transaction_builder = TransactionBuilder::new(
-            TransactionPayload::EntryFunction(EntryFunction::new(
-                ModuleId::new(token_address, Identifier::new("token").unwrap()),
-                Identifier::new("create_token_script").unwrap(),
-                vec![],
-                vec![
-                    bcs::to_bytes(&collection_name).unwrap(),
-                    bcs::to_bytes(&token_name).unwrap(),
-                    bcs::to_bytes(&token_description).unwrap(),
-                    bcs::to_bytes(&1).unwrap(), // balance
-                    bcs::to_bytes(&1).unwrap(), // maximum
-                    bcs::to_bytes(&token_uri).unwrap(),
-                    bcs::to_bytes(&royalty.royalty_payee_address).unwrap(),
-                    bcs::to_bytes(&royalty.royalty_points_denominator).unwrap(),
-                    bcs::to_bytes(&royalty.royalty_points_numerator).unwrap(),
-                    // mutate_settings: [maximum, uri, royalty, description, properties]
-                    bcs::to_bytes(&vec![false, false, false, false, false]).unwrap(),
-                    // property_keys
-                    bcs::to_bytes(&empty_vec).unwrap(),
-                    // property_values
-                    bcs::to_bytes(&empty_vec).unwrap(),
-                    // property_types
-                    bcs::to_bytes(&empty_vec).unwrap(),
-                ],
-            )),
+            token_create_token_script(
+                collection_name.to_owned().into_bytes(),
+                token_name.to_owned().into_bytes(),
+                token_description.to_owned().into_bytes(),
+                1,
+                0,
+                token_uri.to_owned().into_bytes(),
+                royalty_payee_address,
+                royalty.royalty_points_denominator,
+                royalty.royalty_points_numerator,
+                vec![false, false, false, false, false],
+                vec!["".as_bytes().to_vec()],
+                vec!["".as_bytes().to_vec()],
+                vec!["".as_bytes().to_vec()],
+            ),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -200,23 +194,17 @@ impl TokenClient {
             .get_account_balance(&self.sender.address())
             .await?;
 
-        let token_address = AccountAddress::from_str("0x03").expect("Token addr parse error");
+        let to_addr = AccountAddress::from_str(&to).expect("Err parsing addr");
+        let creator_addr = AccountAddress::from_str(&creator).expect("Err parsing addr");
         let transaction_builder = TransactionBuilder::new(
-            TransactionPayload::EntryFunction(EntryFunction::new(
-                ModuleId::new(token_address, Identifier::new("token_transfers").unwrap()),
-                Identifier::new("offer_script").unwrap(),
-                vec![],
-                vec![
-                    bcs::to_bytes(&to).unwrap(),
-                    bcs::to_bytes(&creator).unwrap(),
-                    bcs::to_bytes(&collection_name).unwrap(),
-                    bcs::to_bytes(&token_name).unwrap(),
-                    // token property version
-                    bcs::to_bytes(&0).unwrap(),
-                    // amount
-                    bcs::to_bytes(&1).unwrap(),
-                ],
-            )),
+            token_transfers_offer_script(
+                to_addr,
+                creator_addr,
+                collection_name.to_owned().into_bytes(),
+                token_name.to_owned().into_bytes(),
+                0,
+                1,
+            ),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -261,21 +249,16 @@ impl TokenClient {
             .get_account_balance(&self.sender.address())
             .await?;
 
-        let token_address = AccountAddress::from_str("0x03").expect("Token addr parse error");
+        let sender_addr = AccountAddress::from_str(&sender).expect("Err parsing addr");
+        let creator_addr = AccountAddress::from_str(&creator).expect("Err parsing addr");
         let transaction_builder = TransactionBuilder::new(
-            TransactionPayload::EntryFunction(EntryFunction::new(
-                ModuleId::new(token_address, Identifier::new("token_transfers").unwrap()),
-                Identifier::new("claim_script").unwrap(),
-                vec![],
-                vec![
-                    bcs::to_bytes(&sender).unwrap(),
-                    bcs::to_bytes(&creator).unwrap(),
-                    bcs::to_bytes(&collection_name).unwrap(),
-                    bcs::to_bytes(&token_name).unwrap(),
-                    // token property version
-                    bcs::to_bytes(&0).unwrap(),
-                ],
-            )),
+            token_transfers_claim_script(
+                sender_addr,
+                creator_addr,
+                collection_name.to_owned().into_bytes(),
+                token_name.to_owned().into_bytes(),
+                0,
+            ),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()

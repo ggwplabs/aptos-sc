@@ -34,8 +34,8 @@ async fn main() {
                 .await
                 .expect("Creating collection error");
 
-            println!("{}", tx.hash);
             println!("APT Cost: {} ({})", cost, amount_to_ui_amount(cost));
+            println!("{}", tx.hash);
         }
 
         (app::CMD_MINT_NFT, Some(cmd_matches)) => {
@@ -61,7 +61,11 @@ async fn main() {
                 .await
                 .expect("Creating token error");
 
-            println!("Token created, cost: {}", cost);
+            println!(
+                "Token created, cost: {} ({})",
+                cost,
+                amount_to_ui_amount(cost)
+            );
             println!("tx: {}", tx.hash);
 
             println!("Offer token to: {}", to_addr);
@@ -70,7 +74,11 @@ async fn main() {
                 .await
                 .expect("Offer token error");
 
-            println!("Token offered, cost: {}", cost);
+            println!(
+                "Token offered, cost: {} ({})",
+                cost,
+                amount_to_ui_amount(cost)
+            );
             println!("tx: {}", tx.hash);
         }
 
@@ -88,7 +96,11 @@ async fn main() {
                 .await
                 .expect("Claim token error");
 
-            println!("Token claimed, cost: {}", cost);
+            println!(
+                "Token claimed, cost: {} ({})",
+                cost,
+                amount_to_ui_amount(cost)
+            );
             println!("tx: {}", tx.hash);
         }
 
