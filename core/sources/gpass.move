@@ -328,6 +328,7 @@ module ggwp_core::gpass {
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(freezed_amount != 0, ERR_ZERO_FREEZING_AMOUNT);
 
+        let now = timestamp::now_seconds();
         let user_addr = signer::address_of(user);
         if (!exists<UserInfo>(user_addr)) {
             let user_info = UserInfo {
@@ -338,6 +339,14 @@ module ggwp_core::gpass {
             move_to(user, user_info);
         };
 
+        if (!exists<Wallet>(user_addr)) {
+            let wallet = Wallet {
+                amount: 0,
+                last_burned: now,
+            };
+            move_to(user, wallet);
+        };
+
         let user_info = borrow_global_mut<UserInfo>(user_addr);
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
 
@@ -345,7 +354,7 @@ module ggwp_core::gpass {
         let gpass_earned = earned_gpass_immediately(&freezing_info.reward_table, freezed_amount);
 
         // Try to reset gpass daily reward
-        let now = timestamp::now_seconds();
+
         let spent_time = now - freezing_info.daily_gpass_reward_last_reset;
         if (spent_time >= 24 * 60 * 60) {
             freezing_info.daily_gpass_reward = 0;
