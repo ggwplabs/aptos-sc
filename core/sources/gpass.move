@@ -334,7 +334,7 @@ module ggwp_core::gpass {
             let user_info = UserInfo {
                 freezed_amount: 0,
                 freezed_time: 0,
-                last_getting_gpass: 0,
+                last_getting_gpass: now,
             };
             move_to(user, user_info);
         };
@@ -363,7 +363,6 @@ module ggwp_core::gpass {
 
         if (gpass_earned > 0) {
             freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
-            user_info.last_getting_gpass = now;
             mint_to(ggwp_core_addr, user_addr, gpass_earned);
         };
 
@@ -379,6 +378,7 @@ module ggwp_core::gpass {
         freezing_info.total_users_freezed = freezing_info.total_users_freezed + 1;
         user_info.freezed_amount = freezed_amount;
         user_info.freezed_time = now;
+        user_info.last_getting_gpass = now;
     }
 
     /// In every time user can withdraw GPASS earned.

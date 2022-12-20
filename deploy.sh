@@ -1,4 +1,5 @@
 REGENERATE_KEYS="OFF"
+SCRIPT="OFF"
 
 AIRDROP="OFF"
 PUBLISH="OFF"
@@ -46,6 +47,7 @@ STAKING_INITIALIZE="$STAKING::staking::initialize"
 GGWP_CORE="0x$profiles_core_account"
 GGWP_CORE_INITIALIZE="$GGWP_CORE::gpass::initialize"
 GGWP_CORE_ADD_REWARD_TABLE_ROW="$GGWP_CORE::gpass::add_reward_table_row"
+GGWP_CORE_CLEANUP_REWARD_TABLE="$GGWP_CORE::gpass::cleanup_reward_table"
 GGWP_CORE_ADD_BURNER="$GGWP_CORE::gpass::add_burner"
 
 ACCUMULATIVE_FUND="0x$profiles_distribution_account"
@@ -66,6 +68,13 @@ update_faucet "$FAUCET" "faucet/Move.toml"
 update_games "$GAMES" "games/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_staking "$STAKING" "staking/Move.toml"
+
+# Place for another script actions
+if [[ $SCRIPT == "ON" ]]
+then
+   # Sctiprt
+   echo "Script"
+fi
 
 if [[ $AIRDROP == "ON" ]]
 then
