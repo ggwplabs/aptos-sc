@@ -11,7 +11,7 @@ module ggwp_core::gpass_test {
     use coin::ggwp::GGWPCoin;
 
     #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222)]
-    #[expected_failure(abort_code = 0x1002)]
+    #[expected_failure(abort_code = 0x1002, location = ggwp_core::gpass)]
     public entry fun double_initialize(core_signer: &signer, accumulative_fund: &signer) {
         genesis::setup();
 

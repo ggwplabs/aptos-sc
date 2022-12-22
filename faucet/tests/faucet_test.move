@@ -48,7 +48,7 @@ module faucet::faucet_tests {
     }
 
     #[test(faucet_signer = @faucet)]
-    #[expected_failure(abort_code = 0x1001)]
+    #[expected_failure(abort_code = 0x1001, location = faucet::faucet)]
     public entry fun test_already_exists(faucet_signer: &signer) {
         let faucet_addr = signer::address_of(faucet_signer);
         create_account_for_test(faucet_addr);
@@ -124,7 +124,7 @@ module faucet::faucet_tests {
     }
 
     #[test(faucet_signer = @faucet)]
-    #[expected_failure(abort_code = 0x1003)]
+    #[expected_failure(abort_code = 0x1003, location = faucet::faucet)]
     public entry fun test_faucet_fail_request(faucet_signer: &signer) {
         genesis::setup();
 
