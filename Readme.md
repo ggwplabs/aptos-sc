@@ -6,9 +6,8 @@
 $ sh tests.sh
 ```
 
-## Deploy faucet
+## Deploy and initialize sc
 
 ```
-$ cd faucet
-$ aptos move publish
+$ sh deploy.sh
 ```

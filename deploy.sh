@@ -218,11 +218,15 @@ then
 
     # Set up reward table
     echo "Set up reward table..."
-    ARGS="u64:500000000000 u64:5"
+    ARGS="u64:100000000000 u64:5"
     aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
-    ARGS="u64:1000000000000 u64:10"
+    ARGS="u64:200000000000 u64:10"
     aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
-    ARGS="u64:1500000000000 u64:15"
+    ARGS="u64:300000000000 u64:15"
+    aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
+    ARGS="u64:400000000000 u64:20"
+    aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
+    ARGS="u64:480000000000 u64:25"
     aptos move run --function-id $GGWP_CORE_ADD_REWARD_TABLE_ROW --args $ARGS --profile core --assume-yes
 
     # Set burners

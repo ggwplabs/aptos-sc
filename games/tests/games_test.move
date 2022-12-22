@@ -140,7 +140,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1007)]
+    #[expected_failure(abort_code = 0x1007, location = games::fighting)]
     public entry fun invalid_actions_list_size(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);
@@ -199,7 +199,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1006)]
+    #[expected_failure(abort_code = 0x1006, location = games::fighting)]
     public entry fun not_in_game_test(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);
@@ -258,7 +258,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1001)]
+    #[expected_failure(abort_code = 0x1001, location = games::fighting)]
     public entry fun finalize_before_start_test(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);
@@ -308,7 +308,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1008)]
+    #[expected_failure(abort_code = 0x1008, location = games::fighting)]
     public entry fun empty_play_to_earn_fund_test(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);
@@ -361,7 +361,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1004)]
+    #[expected_failure(abort_code = 0x1004, location = games::fighting)]
     public entry fun still_in_game_test(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);
@@ -463,7 +463,7 @@ module games::fighting_tests {
     }
 
     #[test(games = @games, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, user = @0x1111)]
-    #[expected_failure(abort_code = 0x1005)]
+    #[expected_failure(abort_code = 0x1005, location = games::fighting)]
     public entry fun not_enough_gpass_test(games: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669882762);

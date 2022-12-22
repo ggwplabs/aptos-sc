@@ -51,7 +51,7 @@ module accumulative_fund::distribution_test {
     }
 
     #[test(ac_fund_signer = @accumulative_fund, ggwp_coin = @coin, play_to_earn_fund = @0x11111, staking_fund = @0x1122, company_fund = @0x1133, team_fund = @0x1144)]
-    #[expected_failure(abort_code = 0x1004)]
+    #[expected_failure(abort_code = 0x1004, location = accumulative_fund::distribution)]
     public fun zero_accumulative_fund_amount(ac_fund_signer: &signer, ggwp_coin: &signer, play_to_earn_fund: &signer, staking_fund: &signer, company_fund: &signer, team_fund: &signer) {
         genesis::setup();
         timestamp::update_global_time_for_test_secs(1669292558);

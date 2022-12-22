@@ -14,7 +14,7 @@ module staking::staking_test {
     const DAY: u64 = 24 * 60 * 60;
 
     #[test(staking = @staking, ggwp_coin = @coin, accumulative_fund = @0x11223344, user1 = @0x11)]
-    #[expected_failure(abort_code = 0x1001)]
+    #[expected_failure(abort_code = 0x1001, location = staking::staking)]
     public entry fun withdraw_before_stake_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
 
@@ -52,7 +52,7 @@ module staking::staking_test {
     }
 
     #[test(staking = @staking, ggwp_coin = @coin, accumulative_fund = @0x11223344, user1 = @0x11)]
-    #[expected_failure(abort_code = 0x1009)]
+    #[expected_failure(abort_code = 0x1009, location = staking::staking)]
     public entry fun additional_stake_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
 
@@ -233,7 +233,7 @@ module staking::staking_test {
     }
 
     #[test(staking = @staking, ggwp_coin = @coin, accumulative_fund = @0x11223344, user1 = @0x11)]
-    #[expected_failure(abort_code = 0x1008)]
+    #[expected_failure(abort_code = 0x1008, location = staking::staking)]
     public entry fun min_stake_amount_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
 
@@ -271,7 +271,7 @@ module staking::staking_test {
     }
 
     #[test(staking = @staking, accumulative_fund = @0x11223344)]
-    #[expected_failure(abort_code = 0x1001)]
+    #[expected_failure(abort_code = 0x1001, location = staking::staking)]
     public entry fun update_before_initialize(staking: &signer, accumulative_fund: &signer) {
         genesis::setup();
 
