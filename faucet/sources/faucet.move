@@ -39,19 +39,25 @@ module faucet::faucet {
     public entry fun create_faucet<CoinType>(faucet_account: &signer, amount_to_deposit: u64, per_request: u64, period: u64) {
         let faucet_addr = signer::address_of(faucet_account);
         assert!(faucet_addr == @faucet, error::permission_denied(ERR_NOT_AUTHORIZED));
-        let deposit = coin::withdraw<CoinType>(faucet_account, amount_to_deposit);
 
-        assert!(!exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_EXISTS);
+        if (exists<Faucet<CoinType>>(faucet_addr) && exists<Events<CoinType>>(faucet_addr)) {
+            assert!(false, ERR_FAUCET_EXISTS);
+        };
 
-        move_to(faucet_account, Faucet<CoinType> {
-            deposit,
-            per_request,
-            period,
-        });
+        if (!exists<Faucet<CoinType>>(faucet_addr)) {
+            let deposit = coin::withdraw<CoinType>(faucet_account, amount_to_deposit);
+            move_to(faucet_account, Faucet<CoinType> {
+                deposit,
+                per_request,
+                period,
+            });
+        };
 
-        move_to(faucet_account, Events<CoinType> {
-            request_events: account::new_event_handle<RequestEvent>(faucet_account),
-        });
+        if (!exists<Events<CoinType>>(faucet_addr)) {
+            move_to(faucet_account, Events<CoinType> {
+                request_events: account::new_event_handle<RequestEvent>(faucet_account),
+            });
+        };
     }
 
     /// Change settings of faucet `CoinType`.
