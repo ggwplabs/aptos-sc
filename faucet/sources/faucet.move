@@ -1,31 +1,37 @@
 module faucet::faucet {
     use std::signer;
     use std::error;
+    use aptos_framework::account;
     use aptos_framework::timestamp;
+    use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::coin::{Self, Coin};
 
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
-    /// When Faucet already exists on account.
     const ERR_FAUCET_EXISTS: u64 = 0x1001;
-    /// When Faucet doesn't exists on account.
     const ERR_FAUCET_NOT_EXISTS: u64 = 0x1002;
-    /// When user already got coins and currently restricted to request more funds.
     const ERR_RESTRICTED: u64 = 0x1003;
     const ERR_INVALID_PID: u64 = 0x1004;
 
-    /// Faucet data.
     struct Faucet<phantom CoinType> has key {
-        /// Faucet balance.
         deposit: Coin<CoinType>,
-        /// How much coins should be sent to user per request.
         per_request: u64,
-        /// Period between requests to faucet in seconds.
         period: u64,
     }
 
-    /// If user has this resource on his account - he's not able to get more funds if (current_timestamp < since + period).
     struct Restricted<phantom Faucet> has key {
         since: u64,
+    }
+
+    struct Events<phantom Faucet> has key {
+        request_events: EventHandle<RequestEvent>,
+    }
+
+    // Events
+
+    struct RequestEvent has drop, store {
+        to: address,
+        amount: u64,
+        date: u64,
     }
 
     /// Creates new faucet on `faucet_account` address for coin `CoinType`.
@@ -40,7 +46,11 @@ module faucet::faucet {
         move_to(faucet_account, Faucet<CoinType> {
             deposit,
             per_request,
-            period
+            period,
+        });
+
+        move_to(faucet_account, Events<CoinType> {
+            request_events: account::new_event_handle<RequestEvent>(faucet_account),
         });
     }
 
@@ -66,7 +76,7 @@ module faucet::faucet {
     }
 
     /// Deposits coins `CoinType` from faucet on user's account.
-    public entry fun request<CoinType>(user: &signer, faucet_addr: address) acquires Faucet, Restricted {
+    public entry fun request<CoinType>(user: &signer, faucet_addr: address) acquires Faucet, Restricted, Events {
         let user_addr = signer::address_of(user);
 
         assert!(faucet_addr == @faucet, ERR_INVALID_PID);
@@ -91,6 +101,12 @@ module faucet::faucet {
         };
 
         coin::deposit(user_addr, coins_to_user);
+
+        let events = borrow_global_mut<Events<CoinType>>(faucet_addr);
+        event::emit_event<RequestEvent>(
+            &mut events.request_events,
+            RequestEvent { to: user_addr, amount: faucet.per_request, date: now },
+        );
     }
 
     // Test
