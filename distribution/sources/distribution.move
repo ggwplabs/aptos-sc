@@ -7,6 +7,7 @@ module accumulative_fund::distribution {
     use aptos_framework::coin;
 
     use coin::ggwp::GGWPCoin;
+    use staking::staking;
 
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
@@ -133,7 +134,7 @@ module accumulative_fund::distribution {
         // Transfer GGWP to staking fund
         let staking_fund_amount =
             calc_share_amount(amount, distribution_info.staking_fund_share);
-        coin::transfer<GGWPCoin>(accumulative_fund, distribution_info.staking_fund, staking_fund_amount);
+        staking::deposit_staking_fund(accumulative_fund, distribution_info.staking_fund, staking_fund_amount);
 
         // Transfer GGWP to company fund
         let company_fund_amount =
