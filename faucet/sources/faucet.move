@@ -87,6 +87,7 @@ module faucet::faucet {
 
         assert!(faucet_addr == @faucet, ERR_INVALID_PID);
         assert!(exists<Faucet<CoinType>>(faucet_addr), ERR_FAUCET_NOT_EXISTS);
+        assert!(exists<Events<CoinType>>(faucet_addr), ERR_FAUCET_NOT_EXISTS);
 
         if (!coin::is_account_registered<CoinType>(user_addr)) {
             coin::register<CoinType>(user);
