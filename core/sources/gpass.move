@@ -3,6 +3,8 @@ module ggwp_core::gpass {
     use std::signer;
     use std::vector;
     use std::error;
+    use aptos_framework::account;
+    use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
     use aptos_framework::coin::{Self, Coin};
 
@@ -38,39 +40,63 @@ module ggwp_core::gpass {
     ) {
         let ggwp_core_addr = signer::address_of(ggwp_core);
         assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
-        assert!(!exists<GpassInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
-        assert!(!exists<FreezingInfo>(ggwp_core_addr), ERR_ALREADY_INITIALIZED);
+
+        if (exists<GpassInfo>(ggwp_core_addr) && exists<GpassEvents>(ggwp_core_addr) &&
+            exists<FreezingInfo>(ggwp_core_addr) && exists<FreezingEvents>(ggwp_core_addr))
+        {
+            assert!(false, ERR_ALREADY_INITIALIZED);
+        };
 
         assert!(burn_period != 0, ERR_INVALID_BURN_PERIOD);
         assert!(reward_period != 0, ERR_INVALID_PERIOD);
         assert!(royalty <= 100, ERR_INVALID_ROYALTY);
         assert!(unfreeze_royalty <= 100, ERR_INVALID_ROYALTY);
 
-        let gpass_info = GpassInfo {
-            burn_period: burn_period,
-            total_amount: 0,
-            burners: vector::empty<address>(),
+
+        if (!exists<GpassInfo>(ggwp_core_addr)) {
+            let gpass_info = GpassInfo {
+                burn_period: burn_period,
+                total_amount: 0,
+                burners: vector::empty<address>(),
+            };
+            move_to(ggwp_core, gpass_info);
         };
-        move_to(ggwp_core, gpass_info);
 
-        let now = timestamp::now_seconds();
-        let freezing_info = FreezingInfo {
-            treasury: coin::zero<GGWPCoin>(),
-            accumulative_fund: accumulative_fund,
-            total_freezed: 0,
-            total_users_freezed: 0,
-            reward_period: reward_period,
-            royalty: royalty,
-
-            daily_gpass_reward: 0,
-            daily_gpass_reward_last_reset: now,
-
-            unfreeze_royalty: unfreeze_royalty,
-            unfreeze_lock_period: unfreeze_lock_period,
-
-            reward_table: vector::empty<RewardTableRow>(),
+        if (!exists<GpassEvents>(ggwp_core_addr)) {
+            move_to(ggwp_core, GpassEvents {
+                mint_events: account::new_event_handle<MintEvent>(ggwp_core),
+                burn_events: account::new_event_handle<BurnEvent>(ggwp_core),
+            });
         };
-        move_to(ggwp_core, freezing_info);
+
+        if (!exists<FreezingInfo>(ggwp_core_addr)) {
+            let now = timestamp::now_seconds();
+            let freezing_info = FreezingInfo {
+                treasury: coin::zero<GGWPCoin>(),
+                accumulative_fund: accumulative_fund,
+                total_freezed: 0,
+                total_users_freezed: 0,
+                reward_period: reward_period,
+                royalty: royalty,
+
+                daily_gpass_reward: 0,
+                daily_gpass_reward_last_reset: now,
+
+                unfreeze_royalty: unfreeze_royalty,
+                unfreeze_lock_period: unfreeze_lock_period,
+
+                reward_table: vector::empty<RewardTableRow>(),
+            };
+            move_to(ggwp_core, freezing_info);
+        };
+
+        if (!exists<FreezingEvents>(ggwp_core_addr)) {
+            move_to(ggwp_core, FreezingEvents {
+                freeze_events: account::new_event_handle<FreezeEvent>(ggwp_core),
+                withdraw_events: account::new_event_handle<WithdrawEvent>(ggwp_core),
+                unfreeze_events: account::new_event_handle<UnfreezeEvent>(ggwp_core),
+            });
+        };
     }
 
     // GPASS
@@ -87,6 +113,25 @@ module ggwp_core::gpass {
         burn_period: u64,
         total_amount: u64,
         burners: vector<address>,
+    }
+
+    struct GpassEvents has key {
+        mint_events: EventHandle<MintEvent>,
+        burn_events: EventHandle<BurnEvent>,
+    }
+
+    // GPASS Events
+
+    struct MintEvent has drop, store {
+        to: address,
+        amount: u64,
+        date: u64,
+    }
+
+    struct BurnEvent has drop, store {
+        from: address,
+        amount: u64,
+        date: u64,
     }
 
     /// Adding the new burner in burners list.
@@ -136,12 +181,14 @@ module ggwp_core::gpass {
 
     /// Mint the amount of GPASS to user wallet.
     /// There is trying to burn overdues before minting.
-    public fun mint_to(ggwp_core_addr: address, to: address, amount: u64) acquires Wallet, GpassInfo {
+    public fun mint_to(ggwp_core_addr: address, to: address, amount: u64) acquires Wallet, GpassInfo, GpassEvents {
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<Wallet>(to), ERR_WALLET_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let wallet = borrow_global_mut<Wallet>(to);
 
         let now = timestamp::now_seconds();
@@ -149,10 +196,20 @@ module ggwp_core::gpass {
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
             wallet.last_burned = now;
+
+            event::emit_event<BurnEvent>(
+                &mut events.burn_events,
+                BurnEvent { from: to, amount: amount, date: now },
+            );
         };
 
         wallet.amount = wallet.amount + amount;
         gpass_info.total_amount = gpass_info.total_amount + amount;
+
+        event::emit_event<MintEvent>(
+            &mut events.mint_events,
+            MintEvent { to: to, amount: amount, date: now },
+        );
     }
 
     /// There is trying to burn overdues.
@@ -169,25 +226,37 @@ module ggwp_core::gpass {
 
     /// User burn gpass amount from his wallet.
     /// There is trying to burn overdues before burning.
-    public entry fun burn(user: &signer, ggwp_core_addr: address, amount: u64) acquires Wallet, GpassInfo {
+    public entry fun burn(user: &signer, ggwp_core_addr: address, amount: u64) acquires Wallet, GpassInfo, GpassEvents {
         let user_addr = signer::address_of(user);
         assert!(exists<Wallet>(user_addr), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let wallet = borrow_global_mut<Wallet>(user_addr);
 
         // Try to burn amount before mint
         let now = timestamp::now_seconds();
         if (now - wallet.last_burned >= gpass_info.burn_period) {
+            event::emit_event<BurnEvent>(
+                &mut events.burn_events,
+                BurnEvent { from: user_addr, amount: wallet.amount, date: now },
+            );
+
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
             wallet.last_burned = now;
         };
 
         if (wallet.amount != 0) {
+            event::emit_event<BurnEvent>(
+                &mut events.burn_events,
+                BurnEvent { from: user_addr, amount: amount, date: now },
+            );
+
             wallet.amount = wallet.amount - amount;
             gpass_info.total_amount = gpass_info.total_amount - amount;
         }
@@ -195,13 +264,15 @@ module ggwp_core::gpass {
 
     /// Burn the amount of GPASS from user wallet. Available only for burners.
     /// There is trying to burn overdues before burning.
-    public entry fun burn_from(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo {
+    public entry fun burn_from(burner: &signer, ggwp_core_addr: address, from: address, amount: u64) acquires Wallet, GpassInfo, GpassEvents {
         assert!(exists<Wallet>(from), ERR_WALLET_NOT_INITIALIZED);
         assert!(amount != 0, ERR_INVALID_AMOUNT);
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         // Note: burner is the ggwp_games contract.
         assert!(vector::contains(&gpass_info.burners, &signer::address_of(burner)), ERR_INVALID_BURN_AUTH);
 
@@ -210,12 +281,22 @@ module ggwp_core::gpass {
         // Try to burn amount before mint
         let now = timestamp::now_seconds();
         if (now - wallet.last_burned >= gpass_info.burn_period) {
+            event::emit_event<BurnEvent>(
+                &mut events.burn_events,
+                BurnEvent { from: from, amount: wallet.amount, date: now },
+            );
+
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
             wallet.last_burned = now;
         };
 
         if (wallet.amount != 0) {
+            event::emit_event<BurnEvent>(
+                &mut events.burn_events,
+                BurnEvent { from: from, amount: amount, date: now },
+            );
+
             wallet.amount = wallet.amount - amount;
             gpass_info.total_amount = gpass_info.total_amount - amount;
         }
@@ -274,6 +355,35 @@ module ggwp_core::gpass {
         last_getting_gpass: u64, // UnixTimestamp
     }
 
+    struct FreezingEvents has key {
+        freeze_events: EventHandle<FreezeEvent>,
+        withdraw_events: EventHandle<WithdrawEvent>,
+        unfreeze_events: EventHandle<UnfreezeEvent>
+    }
+
+    // GPASS Events
+
+    struct FreezeEvent has drop, store {
+        user: address,
+        ggwp_amount: u64,
+        gpass_amount: u64,
+        date: u64,
+    }
+
+    struct WithdrawEvent has drop, store {
+        user: address,
+        ggwp_amount: u64,
+        gpass_amount: u64,
+        date: u64,
+    }
+
+    struct UnfreezeEvent has drop, store {
+        user: address,
+        ggwp_amount: u64,
+        gpass_amount: u64,
+        date: u64,
+    }
+
     /// Clean up reward table
     public entry fun cleanup_reward_table(ggwp_core: &signer) acquires FreezingInfo {
         let ggwp_core_addr = signer::address_of(ggwp_core);
@@ -322,10 +432,12 @@ module ggwp_core::gpass {
     }
 
     /// User freezes his amount of GGWP token to get the GPASS.
-    public entry fun freeze_tokens(user: &signer, ggwp_core_addr: address, freezed_amount: u64) acquires FreezingInfo, GpassInfo, UserInfo, Wallet {
+    public entry fun freeze_tokens(user: &signer, ggwp_core_addr: address, freezed_amount: u64) acquires FreezingInfo, GpassInfo, UserInfo, Wallet, GpassEvents, FreezingEvents {
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<FreezingEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(freezed_amount != 0, ERR_ZERO_FREEZING_AMOUNT);
 
         let now = timestamp::now_seconds();
@@ -349,6 +461,7 @@ module ggwp_core::gpass {
 
         let user_info = borrow_global_mut<UserInfo>(user_addr);
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let freezing_events = borrow_global_mut<FreezingEvents>(ggwp_core_addr);
 
         // Pay amount of GPASS earned by user immediately
         let gpass_earned = earned_gpass_immediately(&freezing_info.reward_table, freezed_amount);
@@ -379,20 +492,29 @@ module ggwp_core::gpass {
         user_info.freezed_amount = freezed_amount;
         user_info.freezed_time = now;
         user_info.last_getting_gpass = now;
+
+        event::emit_event<FreezeEvent>(
+            &mut freezing_events.freeze_events,
+            FreezeEvent { user: user_addr, ggwp_amount: freezed_amount, gpass_amount: gpass_earned, date: now },
+        );
     }
 
     /// In every time user can withdraw GPASS earned.
-    public entry fun withdraw_gpass(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, Wallet, GpassInfo {
+    public entry fun withdraw_gpass(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, Wallet, GpassInfo, GpassEvents, FreezingEvents {
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<FreezingEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let user_addr = signer::address_of(user);
         assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Wallet>(user_addr), ERR_WALLET_NOT_INITIALIZED);
 
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let freezing_events = borrow_global_mut<FreezingEvents>(ggwp_core_addr);
         let user_info = borrow_global_mut<UserInfo>(user_addr);
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let gpass_events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let user_wallet = borrow_global_mut<Wallet>(user_addr);
 
         // Check users earned gpass
@@ -400,6 +522,11 @@ module ggwp_core::gpass {
         let last = user_info.last_getting_gpass;
         let spent_time = now - user_wallet.last_burned;
         if (spent_time >= gpass_info.burn_period) {
+            event::emit_event<BurnEvent>(
+                &mut gpass_events.burn_events,
+                BurnEvent { from: user_addr, amount: user_wallet.amount, date: now },
+            );
+
             try_burn_in_period(gpass_info, user_wallet);
             last = user_wallet.last_burned;
         };
@@ -426,20 +553,29 @@ module ggwp_core::gpass {
 
         // Mint GPASS to user
         mint_to(ggwp_core_addr, user_addr, gpass_earned);
+
+        event::emit_event<WithdrawEvent>(
+            &mut freezing_events.withdraw_events,
+            WithdrawEvent { user: user_addr, ggwp_amount: user_info.freezed_amount, gpass_amount: gpass_earned, date: now },
+        );
     }
 
     // User unfreeze full amount of GGWP token.
-    public entry fun unfreeze(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, GpassInfo, Wallet {
+    public entry fun unfreeze(user: &signer, ggwp_core_addr: address) acquires FreezingInfo, UserInfo, GpassInfo, Wallet, GpassEvents, FreezingEvents {
         assert!(ggwp_core_addr == @ggwp_core, ERR_INVALID_PID);
         assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<FreezingEvents>(ggwp_core_addr), ERR_NOT_AUTHORIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassEvents>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let user_addr = signer::address_of(user);
         assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Wallet>(user_addr), ERR_NOT_INITIALIZED);
 
         let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        let freezing_events = borrow_global_mut<FreezingEvents>(ggwp_core_addr);
         let user_info = borrow_global_mut<UserInfo>(user_addr);
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
+        let gpass_events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let user_wallet = borrow_global_mut<Wallet>(user_addr);
 
         assert!(user_info.freezed_amount != 0, ERR_ZERO_UNFREEZE_AMOUNT);
@@ -449,6 +585,11 @@ module ggwp_core::gpass {
         let last = user_info.last_getting_gpass;
         let spent_time = now - user_wallet.last_burned;
         if (spent_time >= gpass_info.burn_period) {
+            event::emit_event<BurnEvent>(
+                &mut gpass_events.burn_events,
+                BurnEvent { from: user_addr, amount: user_wallet.amount, date: now },
+            );
+
             try_burn_in_period(gpass_info, user_wallet);
             last = user_wallet.last_burned;
         };
@@ -488,6 +629,11 @@ module ggwp_core::gpass {
         // Send GGWP tokens to user wallet
         let amount_coins = coin::extract(&mut freezing_info.treasury, amount);
         coin::deposit(user_addr, amount_coins);
+
+        event::emit_event<UnfreezeEvent>(
+            &mut freezing_events.unfreeze_events,
+            UnfreezeEvent { user: user_addr, ggwp_amount: user_info.freezed_amount, gpass_amount: gpass_earned, date: now },
+        );
 
         freezing_info.total_users_freezed = freezing_info.total_users_freezed - 1;
         user_info.freezed_amount = 0;

@@ -1,6 +1,8 @@
 module accumulative_fund::distribution {
     use std::signer;
     use std::error;
+    use aptos_framework::account;
+    use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
     use aptos_framework::coin;
 
@@ -24,6 +26,21 @@ module accumulative_fund::distribution {
         team_fund_share: u8,
     }
 
+    struct Events has key {
+        distribution_events: EventHandle<DistributionEvent>,
+    }
+
+    // Events
+
+    struct DistributionEvent has drop, store {
+        date: u64,
+        accumulative_fund_amount: u64,
+        play_to_earn_fund_deposit: u64,
+        staking_fund_deposit: u64,
+        company_fund_deposit: u64,
+        team_fund_deposit: u64,
+    }
+
     /// Initialize distribution contract with information abount funds.
     public entry fun initialize(accumulative_fund: &signer,
         play_to_earn_fund: address,
@@ -37,25 +54,37 @@ module accumulative_fund::distribution {
     ) {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
         assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
-        assert!(!exists<DistributionInfo>(accumulative_fund_addr), ERR_ALREADY_INITIALIZED);
+
+        if (exists<DistributionInfo>(accumulative_fund_addr) && exists<Events>(accumulative_fund_addr)) {
+            assert!(false, ERR_ALREADY_INITIALIZED);
+        };
+
         assert!(play_to_earn_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(staking_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(company_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(team_fund_share <= 100, ERR_INVALID_SHARE);
         assert!((play_to_earn_fund_share + staking_fund_share + company_fund_share + team_fund_share) == 100, ERR_INVALID_SHARE);
 
-        let distribution_info = DistributionInfo {
-            last_distribution: 0,
-            play_to_earn_fund: play_to_earn_fund,
-            play_to_earn_fund_share: play_to_earn_fund_share,
-            staking_fund: staking_fund,
-            staking_fund_share: staking_fund_share,
-            company_fund: company_fund,
-            company_fund_share: company_fund_share,
-            team_fund: team_fund,
-            team_fund_share: team_fund_share,
+        if (!exists<DistributionInfo>(accumulative_fund_addr)) {
+            let distribution_info = DistributionInfo {
+                last_distribution: 0,
+                play_to_earn_fund: play_to_earn_fund,
+                play_to_earn_fund_share: play_to_earn_fund_share,
+                staking_fund: staking_fund,
+                staking_fund_share: staking_fund_share,
+                company_fund: company_fund,
+                company_fund_share: company_fund_share,
+                team_fund: team_fund,
+                team_fund_share: team_fund_share,
+            };
+            move_to(accumulative_fund, distribution_info);
         };
-        move_to(accumulative_fund, distribution_info);
+
+        if (!exists<Events>(accumulative_fund_addr)) {
+            move_to(accumulative_fund, Events {
+                distribution_events: account::new_event_handle<DistributionEvent>(accumulative_fund),
+            });
+        };
     }
 
     /// Update shares.
@@ -82,15 +111,19 @@ module accumulative_fund::distribution {
     }
 
     /// Distribute the funds.
-    public entry fun distribute(accumulative_fund: &signer) acquires DistributionInfo {
+    public entry fun distribute(accumulative_fund: &signer) acquires DistributionInfo, Events {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
         assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
 
         let amount = coin::balance<GGWPCoin>(accumulative_fund_addr);
         assert!(amount != 0, ERR_EMPTY_ACCUMULATIVE_FUND);
 
         let distribution_info = borrow_global_mut<DistributionInfo>(accumulative_fund_addr);
+        let events = borrow_global_mut<Events>(accumulative_fund_addr);
+
+        let ac_amount_before = amount;
 
         // Transfer GGWP to play to earn fund
         let play_to_earn_fund_amount =
@@ -113,6 +146,18 @@ module accumulative_fund::distribution {
 
         let now = timestamp::now_seconds();
         distribution_info.last_distribution = now;
+
+        event::emit_event<DistributionEvent>(
+            &mut events.distribution_events,
+            DistributionEvent {
+                date: now,
+                accumulative_fund_amount: ac_amount_before,
+                play_to_earn_fund_deposit: play_to_earn_fund_amount,
+                staking_fund_deposit: staking_fund_amount,
+                company_fund_deposit: company_fund_amount,
+                team_fund_deposit: team_fund_amount,
+            },
+        );
     }
 
     // Getters.

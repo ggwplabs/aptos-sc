@@ -2,6 +2,8 @@ module staking::staking {
     use std::signer;
     use std::vector;
     use std::error;
+    use aptos_framework::account;
+    use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::coin::{Self, Coin};
     use aptos_framework::timestamp;
 
@@ -43,6 +45,28 @@ module staking::staking {
         stake_time: u64,
     }
 
+    struct Events has key {
+        stake_events: EventHandle<StakeEvent>,
+        withdraw_events: EventHandle<WithdrawEvent>,
+    }
+
+    // Events
+
+    struct StakeEvent has drop, store {
+        user: address,
+        amount: u64,
+        royalty: u64,
+        date: u64,
+    }
+
+    struct WithdrawEvent has drop, store {
+        user: address,
+        amount: u64,
+        royalty: u64,
+        reward: u64,
+        date: u64,
+    }
+
     /// Initialize new staking info account with params.
     public entry fun initialize(staking: &signer,
         accumulative_fund: address,
@@ -57,7 +81,10 @@ module staking::staking {
     ) {
         let staking_addr = signer::address_of(staking);
         assert!(staking_addr == @staking, error::permission_denied(ERR_NOT_AUTHORIZED));
-        assert!(!exists<StakingInfo>(staking_addr), ERR_ALREADY_INITIALIZED);
+
+        if (exists<StakingInfo>(staking_addr) && exists<Events>(staking_addr)) {
+            assert!(false, ERR_ALREADY_INITIALIZED);
+        };
 
         assert!(epoch_period != 0, ERR_INVALID_EPOCH_PERIOD);
         assert!(min_stake_amount != 0, ERR_INVALID_MIN_STAKE_AMOUNT);
@@ -70,23 +97,32 @@ module staking::staking {
         assert!(apr_step != 0, ERR_INVALID_APR);
         assert!(apr_end != 0, ERR_INVALID_APR);
 
-        let now = timestamp::now_seconds();
-        let staking_info = StakingInfo {
-            accumulative_fund: accumulative_fund,
-            staking_fund: coin::zero<GGWPCoin>(),
+        if (!exists<StakingInfo>(staking_addr)) {
+            let now = timestamp::now_seconds();
+            let staking_info = StakingInfo {
+                accumulative_fund: accumulative_fund,
+                staking_fund: coin::zero<GGWPCoin>(),
 
-            total_staked: 0,
-            start_time: now,
-            epoch_period: epoch_period,
-            min_stake_amount: min_stake_amount,
-            hold_period: hold_period,
-            hold_royalty: hold_royalty,
-            royalty: royalty,
-            apr_start: apr_start,
-            apr_step: apr_step,
-            apr_end: apr_end,
+                total_staked: 0,
+                start_time: now,
+                epoch_period: epoch_period,
+                min_stake_amount: min_stake_amount,
+                hold_period: hold_period,
+                hold_royalty: hold_royalty,
+                royalty: royalty,
+                apr_start: apr_start,
+                apr_step: apr_step,
+                apr_end: apr_end,
+            };
+            move_to(staking, staking_info);
         };
-        move_to(staking, staking_info);
+
+        if (!exists<Events>(staking_addr)) {
+            move_to(staking, Events {
+                stake_events: account::new_event_handle<StakeEvent>(staking),
+                withdraw_events: account::new_event_handle<WithdrawEvent>(staking),
+            });
+        };
     }
 
     /// Update staking params.
@@ -129,12 +165,14 @@ module staking::staking {
     }
 
     /// User can stake amount of GGWP to earn extra GGWP.
-    public entry fun stake(user: &signer, staking_addr: address, amount: u64) acquires StakingInfo, UserInfo {
+    public entry fun stake(user: &signer, staking_addr: address, amount: u64) acquires StakingInfo, UserInfo, Events {
         let user_addr = signer::address_of(user);
         assert!(staking_addr == @staking, ERR_INVALID_PID);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(staking_addr), ERR_NOT_INITIALIZED);
 
         let staking_info = borrow_global_mut<StakingInfo>(staking_addr);
+        let events = borrow_global_mut<Events>(staking_addr);
         assert!(amount >= staking_info.min_stake_amount, ERR_MIN_STAKE_AMOUNT_EXCEEDED);
 
         if (!exists<UserInfo>(user_addr)) {
@@ -162,16 +200,23 @@ module staking::staking {
         user_info.amount = amount;
         user_info.stake_time = now;
         staking_info.total_staked = staking_info.total_staked + amount;
+
+        event::emit_event<StakeEvent>(
+            &mut events.stake_events,
+            StakeEvent { user: user_addr, amount: amount, royalty: royalty_amount, date: now },
+        );
     }
 
     /// User can withdraw full amount of GGWP with extra reward.
-    public entry fun withdraw(user: &signer, staking_addr: address) acquires StakingInfo, UserInfo {
+    public entry fun withdraw(user: &signer, staking_addr: address) acquires StakingInfo, UserInfo, Events {
         let user_addr = signer::address_of(user);
         assert!(staking_addr == @staking, ERR_INVALID_PID);
         assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(staking_addr), ERR_NOT_INITIALIZED);
         assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
 
         let staking_info = borrow_global_mut<StakingInfo>(staking_addr);
+        let events = borrow_global_mut<Events>(staking_addr);
         let user_info = borrow_global_mut<UserInfo>(user_addr);
 
         let amount = user_info.amount;
@@ -190,8 +235,9 @@ module staking::staking {
         );
 
         // Get withdraw royalty if needed and transfer
+        let withdraw_royalty_amount = 0;
         if (is_withdraw_royalty(now, user_info.stake_time, staking_info.hold_period)) {
-            let withdraw_royalty_amount = calc_royalty_amount(amount, staking_info.hold_royalty);
+            withdraw_royalty_amount = calc_royalty_amount(amount, staking_info.hold_royalty);
             // Transfer royalty from staking_fund to accumulative fund
             let royalty_coins = coin::extract(&mut staking_info.staking_fund, withdraw_royalty_amount);
             coin::deposit(staking_info.accumulative_fund, royalty_coins);
@@ -211,6 +257,11 @@ module staking::staking {
         staking_info.total_staked = staking_info.total_staked - user_info.amount;
         user_info.amount = 0;
         user_info.stake_time = 0;
+
+        event::emit_event<WithdrawEvent>(
+            &mut events.withdraw_events,
+            WithdrawEvent { user: user_addr, amount: amount, royalty: withdraw_royalty_amount, reward: user_reward_amount, date: now },
+        );
     }
 
     // Getters
