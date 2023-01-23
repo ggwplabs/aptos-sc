@@ -27,6 +27,7 @@ then
     yes "" | aptos init --network devnet --profile distribution --assume-yes
     yes "" | aptos init --network devnet --profile company_fund --assume-yes
     yes "" | aptos init --network devnet --profile team_fund --assume-yes
+    yes "" | aptos init --network devnet --profile gateway --assume-yes
 fi
 
 source utils.sh
@@ -68,6 +69,7 @@ update_faucet "$FAUCET" "faucet/Move.toml"
 update_games "$GAMES" "games/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_staking "$STAKING" "staking/Move.toml"
+# TODO: update gateway
 
 # Place for another script actions
 if [[ $SCRIPT == "ON" ]]
@@ -275,6 +277,8 @@ then
     ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$staking_fund u8:$staking_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
     aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
+
+# TODO: gateway init
 
 echo "------------------------------"
 echo "Publish and initialize cost:"

@@ -1,0 +1,11 @@
+[package]
+name = 'gateway'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'main'
+subdir = 'aptos-move/framework/aptos-framework'
+[dependencies]
+ggwpcoin = { local = "../ggwp_coin" }
+[addresses]
+gateway = "0xcf8ccfa885adc06e4f968577781b8748de40021c64f5b097dcc6cb01db97e15a"
