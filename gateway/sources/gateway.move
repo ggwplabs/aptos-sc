@@ -2,6 +2,7 @@ module gateway::gateway {
     use std::signer;
     use std::error;
     use std::string::{Self, String};
+    use std::table_with_length::{Self, TableWithLength};
 
     use aptos_framework::account;
     use aptos_framework::timestamp;
@@ -10,10 +11,16 @@ module gateway::gateway {
 
     use coin::ggwp::GGWPCoin;
 
+    // Errors
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
     const ERR_ZERO_DEPOSIT_AMOUNT: u64 = 0x1003;
+    const ERR_INVALID_PROJECT_NAME: u64 = 0x1004;
+    const ERR_INVALID_GPASS_COST: u64 = 0x1005;
+    const ERR_ALREADY_REMOVED: u64 = 0x1006;
+
+    const MAX_PROJECT_NAME_LEN: u64 = 128;
 
     // Project Block reasons
 
@@ -23,6 +30,27 @@ module gateway::gateway {
         accumulative_fund: address,
         play_to_earn_fund: Coin<GGWPCoin>,
         project_counter: u64,
+    }
+
+    struct ProjectInfo has key, store {
+        id: u64,
+        contributor: address,
+        name: String,
+        is_blocked: bool,
+        is_removed: bool,
+        gpass_cost: u64,
+    }
+
+    struct UserInfo has key, store {
+        is_blocked: bool,
+        game_sessions_counter: u64,
+        game_sessions: TableWithLength<u64, TableWithLength<u64, GameSessionInfo>>,
+    }
+
+    struct GameSessionInfo has store {
+        status: u8,
+        reward: u64,
+        royalty: u64,
     }
 
     struct Events has key {
@@ -168,12 +196,73 @@ module gateway::gateway {
 
     // Public API
 
-    public entry fun sign_up(contributor: &signer) {
+    public entry fun sign_up(contributor: &signer,
+        gateway_addr: address,
+        project_name: String,
+        gpass_cost: u64,
+    ) acquires GatewayInfo, Events, ProjectInfo {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
+        let contributor_addr = signer::address_of(contributor);
+        assert!(!string::is_empty(&project_name), ERR_INVALID_PROJECT_NAME);
+        assert!(string::length(&project_name) <= MAX_PROJECT_NAME_LEN, ERR_INVALID_PROJECT_NAME);
+        assert!(gpass_cost != 0, ERR_INVALID_GPASS_COST);
+
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+        let new_project_id = gateway_info.project_counter + 1;
+
+        // if project is removed, create new project in this resource
+        if (exists<ProjectInfo>(contributor_addr)) {
+            let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+            assert!(project_info.is_removed == true, ERR_ALREADY_INITIALIZED);
+
+            project_info.id = new_project_id;
+            project_info.name = project_name;
+            project_info.is_blocked = false;
+            project_info.is_removed = false;
+            project_info.gpass_cost = gpass_cost;
+        }
+        else {
+            move_to(contributor, ProjectInfo {
+                id: new_project_id,
+                contributor: contributor_addr,
+                name: project_name,
+                is_blocked: false,
+                is_removed: false,
+                gpass_cost: gpass_cost,
+            });
+        };
+
+        gateway_info.project_counter = new_project_id;
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<SignUpEvent>(
+            &mut events.sign_up_events,
+            SignUpEvent {
+                name: project_name,
+                contributor: contributor_addr,
+                project_id: new_project_id,
+                date: now
+        });
     }
 
-    public entry fun remove(contributor: &signer) {
+    public entry fun remove(contributor: &signer, gateway_addr: address) acquires ProjectInfo {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
+        let contributor_addr = signer::address_of(contributor);
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_NOT_INITIALIZED);
+
+        let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+        assert!(project_info.is_removed == false, ERR_ALREADY_REMOVED);
+
+        project_info.is_removed = true;
+        project_info.id = 0;
+        project_info.gpass_cost = 0;
     }
 
     public entry fun start_game(player: &signer) {
