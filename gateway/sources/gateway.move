@@ -10,6 +10,7 @@ module gateway::gateway {
     use aptos_framework::event::{Self, EventHandle};
 
     use coin::ggwp::GGWPCoin;
+    use ggwp_core::gpass;
 
     // Errors
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
@@ -19,7 +20,11 @@ module gateway::gateway {
     const ERR_INVALID_PROJECT_NAME: u64 = 0x1004;
     const ERR_INVALID_GPASS_COST: u64 = 0x1005;
     const ERR_ALREADY_REMOVED: u64 = 0x1006;
+    const ERR_PROJECT_NOT_EXISTS: u64 = 0x1007;
+    const ERR_INVALID_PROJECT_ID: u64 = 0x1008;
+    const ERR_NOT_ENOUGH_GPASS: u64 = 0x1009;
 
+    // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
 
     // Project Block reasons
@@ -29,6 +34,7 @@ module gateway::gateway {
     struct GatewayInfo has key, store {
         accumulative_fund: address,
         play_to_earn_fund: Coin<GGWPCoin>,
+        royalty: u8,
         project_counter: u64,
     }
 
@@ -123,7 +129,7 @@ module gateway::gateway {
         date: u64,
     }
 
-    public entry fun initialize(gateway: &signer, accumulative_fund_addr: address) {
+    public entry fun initialize(gateway: &signer, accumulative_fund_addr: address, royalty: u8) {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
 
@@ -135,6 +141,7 @@ module gateway::gateway {
             let gateway_info = GatewayInfo {
                 accumulative_fund: accumulative_fund_addr,
                 play_to_earn_fund: coin::zero<GGWPCoin>(),
+                royalty: royalty,
                 project_counter: 0,
             };
             move_to(gateway, gateway_info);
@@ -178,21 +185,21 @@ module gateway::gateway {
         );
     }
 
-    public entry fun block_project(gateway: &signer) {
+    // public entry fun block_project(gateway: &signer) {
 
-    }
+    // }
 
-    public entry fun block_player(gateway: &signer) {
+    // public entry fun block_player(gateway: &signer) {
 
-    }
+    // }
 
-    public entry fun unblock_project(gateway: &signer) {
+    // public entry fun unblock_project(gateway: &signer) {
 
-    }
+    // }
 
-    public entry fun unblock_player(gateway: &signer) {
+    // public entry fun unblock_player(gateway: &signer) {
 
-    }
+    // }
 
     // Public API
 
@@ -262,16 +269,77 @@ module gateway::gateway {
 
         project_info.is_removed = true;
         project_info.id = 0;
+        project_info.name = string::utf8(b"");
         project_info.gpass_cost = 0;
     }
 
-    public entry fun start_game(player: &signer) {
+    public entry fun start_game(player: &signer,
+        gateway_addr: address,
+        contributor_addr: address,
+        project_id: u64,
+    ) acquires ProjectInfo {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_PROJECT_NOT_EXISTS);
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
+
+        let player_addr = signer::address_of(player);
+        assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
+
+        // Create UserInfo if not exists
+        if (exists<UserInfo>(player_addr) == false) {
+            // table_with_length::new<u64, GameSessionInfo>()
+            move_to(player, UserInfo {
+                is_blocked: false,
+                game_sessions_counter: 0,
+                game_sessions: table_with_length::new<u64, TableWithLength<u64, GameSessionInfo>>(),
+            });
+        };
+
+        // TODO: check already in game? burn gpass, create session, emit event
     }
 
-    public entry fun finalize_game(player: &signer) {
+    // public entry fun finalize_game(player: &signer) {
 
-    }
+    // }
 
     // Getters
+
+    public fun play_to_earn_fund_balance(gateway_addr: address): u64 acquires GatewayInfo {
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund)
+    }
+
+    public fun get_project_counter(gateway_addr: address): u64 acquires GatewayInfo {
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        gateway_info.project_counter
+    }
+
+    public fun get_project_id(contributor_addr: address): u64 acquires ProjectInfo {
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        project_info.id
+    }
+
+     public fun get_project_gpass_cost(contributor_addr: address): u64 acquires ProjectInfo {
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        project_info.gpass_cost
+    }
+
+    public fun get_project_name(contributor_addr: address): String acquires ProjectInfo {
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        project_info.name
+    }
+
+    public fun get_project_is_blocked(contributor_addr: address): bool acquires ProjectInfo {
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        project_info.is_blocked
+    }
+
+    public fun get_project_is_removed(contributor_addr: address): bool acquires ProjectInfo {
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        project_info.is_removed
+    }
 }

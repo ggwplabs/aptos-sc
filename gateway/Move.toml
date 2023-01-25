@@ -7,5 +7,6 @@ rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = "../ggwp_coin" }
+ggwp_core = { local = "../core" }
 [addresses]
 gateway = "0xcf8ccfa885adc06e4f968577781b8748de40021c64f5b097dcc6cb01db97e15a"

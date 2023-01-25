@@ -141,6 +141,9 @@ then
 
     echo "Deploy games sc.."
     aptos move publish --profile games --package-dir games --assume-yes
+
+    echo "Deploy gateway sc.."
+    aptos move publish --profile gateway --package-dir gateway --assume-yes
 fi
 
 echo "------------------------------"
