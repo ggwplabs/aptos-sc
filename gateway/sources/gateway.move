@@ -17,19 +17,20 @@ module gateway::gateway {
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
     const ERR_ALREADY_INITIALIZED: u64 = 0x1002;
     const ERR_ZERO_DEPOSIT_AMOUNT: u64 = 0x1003;
-    const ERR_INVALID_PROJECT_NAME: u64 = 0x1004;
-    const ERR_INVALID_GPASS_COST: u64 = 0x1005;
-    const ERR_ALREADY_REMOVED: u64 = 0x1006;
-    const ERR_PROJECT_NOT_EXISTS: u64 = 0x1007;
-    const ERR_INVALID_PROJECT_ID: u64 = 0x1008;
-    const ERR_NOT_ENOUGH_GPASS: u64 = 0x1009;
+    const ERR_PROJECT_NOT_EXISTS: u64 = 0x1004;
+    const ERR_PROJECT_BLOCKED: u64 = 0x1005;
+    const ERR_INVALID_PROJECT_ID: u64 = 0x1006;
+    const ERR_INVALID_PROJECT_NAME: u64 = 0x1007;
+    const ERR_INVALID_GPASS_COST: u64 = 0x1008;
+    const ERR_ALREADY_REMOVED: u64 = 0x1009;
+    const ERR_ALREADY_BLOCKED: u64 = 0x1010;
+    const ERR_NOT_BLOCKED: u64 = 0x1011;
+    const ERR_NOT_ENOUGH_GPASS: u64 = 0x1012;
+    const ERR_USER_INFO_NOT_EXISTS: u64 = 0x1013;
+    const ERR_USER_BLOCKED: u64 = 0x1014;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
-
-    // Project Block reasons
-
-    // Player Block reasons
 
     struct GatewayInfo has key, store {
         accumulative_fund: address,
@@ -82,18 +83,20 @@ module gateway::gateway {
 
     struct BlockProjectEvent has drop, store {
         project_id: u64,
-        reason: u8,
+        contributor: address,
+        reason: String,
         date: u64,
     }
 
     struct BlockPlayerEvent has drop, store {
         player: address,
-        reason: u8,
+        reason: String,
         date: u64,
     }
 
     struct UnblockProjectEvent has drop, store {
         project_id: u64,
+        contributor: address,
         date: u64,
     }
 
@@ -111,6 +114,7 @@ module gateway::gateway {
 
     struct RemoveEvent has drop, store {
         project_id: u64,
+        contributor: address,
         date: u64,
     }
 
@@ -185,21 +189,105 @@ module gateway::gateway {
         );
     }
 
-    // public entry fun block_project(gateway: &signer) {
+    public entry fun block_project(gateway: &signer, contributor_addr: address, project_id: u64, reason: String) acquires ProjectInfo, Events {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
-    // }
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_PROJECT_NOT_EXISTS);
+        let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+        assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
+        assert!(project_info.is_removed == false, ERR_ALREADY_REMOVED);
+        assert!(project_info.is_blocked == false, ERR_ALREADY_BLOCKED);
 
-    // public entry fun block_player(gateway: &signer) {
+        project_info.is_blocked = true;
 
-    // }
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<BlockProjectEvent>(
+            &mut events.block_project_events,
+            BlockProjectEvent {
+                project_id: project_id,
+                contributor: contributor_addr,
+                reason: reason,
+                date: now
+            }
+        );
+    }
 
-    // public entry fun unblock_project(gateway: &signer) {
+    public entry fun block_player(gateway: &signer, player_addr: address, reason: String) acquires UserInfo, Events {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
-    // }
+        assert!(exists<UserInfo>(player_addr), ERR_USER_INFO_NOT_EXISTS);
+        let user_info = borrow_global_mut<UserInfo>(player_addr);
+        assert!(user_info.is_blocked == false, ERR_ALREADY_BLOCKED);
 
-    // public entry fun unblock_player(gateway: &signer) {
+        user_info.is_blocked = true;
 
-    // }
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<BlockPlayerEvent>(
+            &mut events.block_player_events,
+            BlockPlayerEvent {
+                player: player_addr,
+                reason: reason,
+                date: now
+            }
+        );
+    }
+
+    public entry fun unblock_project(gateway: &signer, contributor_addr: address, project_id: u64) acquires ProjectInfo, Events {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_PROJECT_NOT_EXISTS);
+        let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+        assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
+        assert!(project_info.is_removed == false, ERR_ALREADY_REMOVED);
+        assert!(project_info.is_blocked == true, ERR_NOT_BLOCKED);
+
+        project_info.is_blocked = false;
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<UnblockProjectEvent>(
+            &mut events.unblock_project_events,
+            UnblockProjectEvent {
+                project_id: project_info.id,
+                contributor: contributor_addr,
+                date: now
+            }
+        );
+    }
+
+    public entry fun unblock_player(gateway: &signer, player_addr: address) acquires UserInfo, Events {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        assert!(exists<UserInfo>(player_addr), ERR_USER_INFO_NOT_EXISTS);
+        let user_info = borrow_global_mut<UserInfo>(player_addr);
+        assert!(user_info.is_blocked == true, ERR_NOT_BLOCKED);
+
+        user_info.is_blocked = false;
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<UnblockPlayerEvent>(
+            &mut events.unblock_player_events,
+            UnblockPlayerEvent {
+                player: player_addr,
+                date: now
+            }
+        );
+    }
 
     // Public API
 
@@ -253,10 +341,11 @@ module gateway::gateway {
                 contributor: contributor_addr,
                 project_id: new_project_id,
                 date: now
-        });
+            }
+        );
     }
 
-    public entry fun remove(contributor: &signer, gateway_addr: address) acquires ProjectInfo {
+    public entry fun remove(contributor: &signer, gateway_addr: address) acquires ProjectInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -265,7 +354,19 @@ module gateway::gateway {
         assert!(exists<ProjectInfo>(contributor_addr), ERR_NOT_INITIALIZED);
 
         let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+        assert!(project_info.is_blocked == false, ERR_ALREADY_BLOCKED);
         assert!(project_info.is_removed == false, ERR_ALREADY_REMOVED);
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<RemoveEvent>(
+            &mut events.remove_events,
+            RemoveEvent {
+                project_id: project_info.id,
+                contributor: contributor_addr,
+                date: now
+            }
+        );
 
         project_info.is_removed = true;
         project_info.id = 0;
@@ -277,7 +378,7 @@ module gateway::gateway {
         gateway_addr: address,
         contributor_addr: address,
         project_id: u64,
-    ) acquires ProjectInfo {
+    ) acquires ProjectInfo, UserInfo {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -285,6 +386,7 @@ module gateway::gateway {
         assert!(exists<ProjectInfo>(contributor_addr), ERR_PROJECT_NOT_EXISTS);
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
+        assert!(project_info.is_blocked == false, ERR_PROJECT_BLOCKED);
 
         let player_addr = signer::address_of(player);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
@@ -298,6 +400,9 @@ module gateway::gateway {
                 game_sessions: table_with_length::new<u64, TableWithLength<u64, GameSessionInfo>>(),
             });
         };
+
+        let user_info = borrow_global_mut<UserInfo>(player_addr);
+        assert!(user_info.is_blocked == false, ERR_USER_BLOCKED);
 
         // TODO: check already in game? burn gpass, create session, emit event
     }
@@ -341,5 +446,10 @@ module gateway::gateway {
     public fun get_project_is_removed(contributor_addr: address): bool acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.is_removed
+    }
+
+    public fun get_player_is_blocked(player_addr: address): bool acquires UserInfo {
+        let user_info = borrow_global<UserInfo>(player_addr);
+        user_info.is_blocked
     }
 }
