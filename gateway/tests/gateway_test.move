@@ -31,13 +31,17 @@ module gateway::gateway_test {
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
 
+    // TODO: start_game_test, finalize_game_test
+
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     public entry fun block_unblock_player_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
         let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"test project game");
@@ -45,7 +49,7 @@ module gateway::gateway_test {
 
         gpass::mint_to(ggwp_core_addr, player_addr, 5);
 
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
         assert!(gateway::get_player_is_blocked(player_addr) == false, 1);
 
         let reason = string::utf8(b"Test reason");
@@ -62,8 +66,10 @@ module gateway::gateway_test {
         let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"test project game");
@@ -71,7 +77,7 @@ module gateway::gateway_test {
 
         gpass::mint_to(ggwp_core_addr, player_addr, 5);
 
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
         assert!(gateway::get_player_is_blocked(player_addr) == false, 1);
 
         let reason = string::utf8(b"Test reason");
@@ -79,7 +85,7 @@ module gateway::gateway_test {
         assert!(gateway::get_player_is_blocked(player_addr) == true, 1);
 
         // Blocked player start the game
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
 
 
@@ -88,8 +94,10 @@ module gateway::gateway_test {
         let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"test project game");
@@ -109,11 +117,13 @@ module gateway::gateway_test {
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     #[expected_failure(abort_code = ERR_PROJECT_BLOCKED, location = gateway::gateway)]
     public entry fun start_game_in_blocked_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
-        let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"test project game");
@@ -126,7 +136,7 @@ module gateway::gateway_test {
         assert!(gateway::get_project_is_blocked(contributor_addr) == true, 1);
 
         // player try to start game in blocked project
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
@@ -135,8 +145,10 @@ module gateway::gateway_test {
         let (gateway_addr, _ggwp_core_addr, ac_fund_addr, _contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"");
@@ -152,8 +164,10 @@ module gateway::gateway_test {
         let (gateway_addr, _ggwp_core_addr, ac_fund_addr, _contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"");
@@ -165,8 +179,10 @@ module gateway::gateway_test {
         let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
         assert!(gateway::get_project_counter(gateway_addr) == 0, 1);
 
         let gpass_cost = 5;
@@ -202,8 +218,10 @@ module gateway::gateway_test {
         let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
         assert!(gateway::play_to_earn_fund_balance(gateway_addr) == 0, 1);
 
         coin::ggwp::register(contributor);
@@ -224,31 +242,35 @@ module gateway::gateway_test {
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     #[expected_failure(abort_code = ERR_PROJECT_NOT_EXISTS, location = gateway::gateway)]
     public entry fun unexists_project_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
-        let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         // player start game in unexists project
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     #[expected_failure(abort_code = ERR_NOT_ENOUGH_GPASS, location = gateway::gateway)]
     public entry fun not_enough_gpass_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
-        let (gateway_addr, _ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(gateway, ac_fund_addr, royalty);
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
 
         let gpass_cost = 5;
         let project_name = string::utf8(b"test game project");
         gateway::sign_up(contributor, gateway_addr, project_name, gpass_cost);
 
         // Player start game without GPASS
-        gateway::start_game(player, gateway_addr, contributor_addr, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
 
     fun fixture_setup(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer)

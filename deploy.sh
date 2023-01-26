@@ -7,7 +7,8 @@ PUBLISH="OFF"
 FAUCET_INIT="OFF"
 STAKING_INIT="OFF"
 CORE_INIT="OFF"
-FIGHTING_INIT="OFF"
+# FIGHTING_INIT="OFF"
+GATEWAY_INIT="OFF"
 
 FUNDS_REGISTER="OFF"
 DISTRIBUTION_INIT="OFF"
@@ -23,7 +24,7 @@ then
     yes "" | aptos init --network devnet --profile faucet --assume-yes
     yes "" | aptos init --network devnet --profile coin --assume-yes
     yes "" | aptos init --network devnet --profile staking --assume-yes
-    yes "" | aptos init --network devnet --profile games --assume-yes
+    # yes "" | aptos init --network devnet --profile games --assume-yes
     yes "" | aptos init --network devnet --profile distribution --assume-yes
     yes "" | aptos init --network devnet --profile company_fund --assume-yes
     yes "" | aptos init --network devnet --profile team_fund --assume-yes
@@ -54,8 +55,8 @@ GGWP_CORE_ADD_BURNER="$GGWP_CORE::gpass::add_burner"
 ACCUMULATIVE_FUND="0x$profiles_distribution_account"
 DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
 
-GAMES="0x$profiles_games_account"
-FIGHTING_INITIALIZE="$GAMES::fighting::initialize"
+#GAMES="0x$profiles_games_account"
+#FIGHTING_INITIALIZE="$GAMES::fighting::initialize"
 
 PLAY_TO_EARN_FUND="0x$profiles_games_account"
 STAKING_FUND="0x$profiles_staking_account"
@@ -66,7 +67,7 @@ TEAM_FUND="0x$profiles_team_fund_account"
 update_ggwp_core "$GGWP_CORE" "core/Move.toml"
 update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
-update_games "$GAMES" "games/Move.toml"
+#update_games "$GAMES" "games/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_staking "$STAKING" "staking/Move.toml"
 # TODO: update gateway
@@ -88,7 +89,7 @@ then
         aptos account fund-with-faucet --account staking --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account core --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account distribution --faucet-url https://faucet.devnet.aptoslabs.com
-        aptos account fund-with-faucet --account games --faucet-url https://faucet.devnet.aptoslabs.com
+        #aptos account fund-with-faucet --account games --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account company_fund --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account team_fund --faucet-url https://faucet.devnet.aptoslabs.com
     done
@@ -112,8 +113,11 @@ echo "core: $core_initial_balance"
 distribution_initial_balance=$(get_balance distribution)
 echo "distribution: $distribution_initial_balance"
 
-games_initial_balance=$(get_balance games)
-echo "games: $games_initial_balance"
+#games_initial_balance=$(get_balance games)
+#echo "games: $games_initial_balance"
+
+gateway_initial_balance$(get_balance gateway)
+echo "gateway: $gateway_initial_balance"
 
 company_fund_initial_balance=$(get_balance company_fund)
 echo "company_fund: $company_fund_initial_balance"
@@ -139,8 +143,8 @@ then
     echo "Deploy accumulative fund distribution.."
     aptos move publish --profile distribution --package-dir distribution --assume-yes
 
-    echo "Deploy games sc.."
-    aptos move publish --profile games --package-dir games --assume-yes
+    # echo "Deploy games sc.."
+    # aptos move publish --profile games --package-dir games --assume-yes
 
     echo "Deploy gateway sc.."
     aptos move publish --profile gateway --package-dir gateway --assume-yes
@@ -169,9 +173,13 @@ distribution_balance=$(get_balance distribution)
 let distribution_cost=$distribution_initial_balance-$distribution_balance
 echo "distribution: $distribution_cost"
 
-games_balance=$(get_balance games)
-let games_cost=$games_initial_balance-$games_balance
-echo "games: $games_cost"
+# games_balance=$(get_balance games)
+# let games_cost=$games_initial_balance-$games_balance
+# echo "games: $games_cost"
+
+gateway_balance=$(get_balance gateway)
+let gateway_cost=$gateway_initial_balance-$gateway_balance
+echo "games: $gateway_cost"
 echo "------------------------------"
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -306,9 +314,13 @@ distribution_balance=$(get_balance distribution)
 let distribution_cost=$distribution_initial_balance-$distribution_balance
 echo "distribution: $distribution_cost"
 
-games_balance=$(get_balance games)
-let games_cost=$games_initial_balance-$games_balance
-echo "games: $games_cost"
+# games_balance=$(get_balance games)
+# let games_cost=$games_initial_balance-$games_balance
+# echo "games: $games_cost"
+
+gateway_balance=$(get_balance games)
+let gateway_cost=$gateway_initial_balance-$gateway_balance
+echo "gateway: $gateway_cost"
 
 company_fund_balance=$(get_balance company_fund)
 let company_fund_cost=$company_fund_initial_balance-$company_fund_balance

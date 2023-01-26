@@ -28,14 +28,25 @@ module gateway::gateway {
     const ERR_NOT_ENOUGH_GPASS: u64 = 0x1012;
     const ERR_PLAYER_INFO_NOT_EXISTS: u64 = 0x1013;
     const ERR_PLAYER_BLOCKED: u64 = 0x1014;
+    const ERR_INVALID_GAME_SESSION_STATUS: u64 = 0x1015;
+    const ERR_MISSING_GAME_SESSION: u64 = 0x1016;
+    const ERR_GAME_SESSION_ALREADY_FINALIZED: u64 = 0x1017;
+    const ERR_EMPTY_PLAY_TO_EARN_FUND: u64 = 0x1018;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
+
+    const GAME_STATUS_DRAW: u8 = 0;
+    const GAME_STATUS_WIN: u8 = 1;
+    const GAME_STATUS_LOSS: u8 = 2;
+    const GAME_STATUS_NONE: u8 = 3;
 
     struct GatewayInfo has key, store {
         accumulative_fund: address,
         play_to_earn_fund: Coin<GGWPCoin>,
         royalty: u8,
+        reward_coefficient: u64,
+        gpass_daily_reward_coefficient: u64,
         project_counter: u64,
     }
 
@@ -51,10 +62,12 @@ module gateway::gateway {
     struct PlayerInfo has key, store {
         is_blocked: bool,
         game_sessions_counter: u64,
+        // <project_id, <session_id, GameSessionInfo>>
         game_sessions: TableWithLength<u64, TableWithLength<u64, GameSessionInfo>>,
     }
 
     struct GameSessionInfo has store {
+        // 0 (draw) / 1 (win) / 2 (loss) / 3 (none)
         status: u8,
         reward: u64,
         royalty: u64,
@@ -129,11 +142,18 @@ module gateway::gateway {
         player: address,
         project_id: u64,
         session_id: u64,
+        status: u8,
         reward: u64,
+        royalty: u64,
         date: u64,
     }
 
-    public entry fun initialize(gateway: &signer, accumulative_fund_addr: address, royalty: u8) {
+    public entry fun initialize(gateway: &signer,
+        accumulative_fund_addr: address,
+        reward_coefficient: u64,
+        gpass_daily_reward_coefficient: u64,
+        royalty: u8,
+    ) {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
 
@@ -146,6 +166,8 @@ module gateway::gateway {
                 accumulative_fund: accumulative_fund_addr,
                 play_to_earn_fund: coin::zero<GGWPCoin>(),
                 royalty: royalty,
+                reward_coefficient: reward_coefficient,
+                gpass_daily_reward_coefficient: gpass_daily_reward_coefficient,
                 project_counter: 0,
             };
             move_to(gateway, gateway_info);
@@ -170,6 +192,21 @@ module gateway::gateway {
     }
 
     // Private API
+
+    public entry fun update_params(gateway: &signer,
+        reward_coefficient: u64,
+        gpass_daily_reward_coefficient: u64,
+        royalty: u8,
+    ) acquires GatewayInfo {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+        gateway_info.reward_coefficient = reward_coefficient;
+        gateway_info.gpass_daily_reward_coefficient = gpass_daily_reward_coefficient;
+        gateway_info.royalty = royalty;
+    }
 
     public entry fun play_to_earn_fund_deposit(funder: &signer, gateway_addr: address, amount: u64) acquires GatewayInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
@@ -376,9 +413,10 @@ module gateway::gateway {
 
     public entry fun start_game(player: &signer,
         gateway_addr: address,
+        ggwp_core_addr: address,
         contributor_addr: address,
         project_id: u64,
-    ) acquires ProjectInfo, PlayerInfo {
+    ) acquires ProjectInfo, PlayerInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -389,8 +427,6 @@ module gateway::gateway {
         assert!(project_info.is_blocked == false, ERR_PROJECT_BLOCKED);
 
         let player_addr = signer::address_of(player);
-        assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
-
         // Create PlayerInfo if not exists
         if (exists<PlayerInfo>(player_addr) == false) {
             // table_with_length::new<u64, GameSessionInfo>()
@@ -403,13 +439,124 @@ module gateway::gateway {
 
         let player_info = borrow_global_mut<PlayerInfo>(player_addr);
         assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
+        assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
-        // TODO: check already in game? burn gpass, create session, emit event
+        // Burn gpass_cost GPASS from user wallet
+        gpass::burn(player, ggwp_core_addr, project_info.gpass_cost);
+
+        // Create game session
+        let new_session_id = player_info.game_sessions_counter + 1;
+        let game_session = GameSessionInfo {
+            status: GAME_STATUS_NONE,
+            reward: 0,
+            royalty: 0,
+        };
+
+        // Add project_id table into game sessions if not exists
+        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
+            table_with_length::add(&mut player_info.game_sessions,
+                project_id,
+                table_with_length::new<u64, GameSessionInfo>()
+            );
+        };
+
+        // Insert new session into table
+        let sessions = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        table_with_length::add(sessions, new_session_id, game_session);
+
+        // Update game_session counter
+        player_info.game_sessions_counter = new_session_id;
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<StartGameEvent>(
+            &mut events.start_game_events,
+            StartGameEvent {
+                player: player_addr,
+                project_id: project_id,
+                session_id: new_session_id,
+                date: now,
+            }
+        );
     }
 
-    // public entry fun finalize_game(player: &signer) {
+    public entry fun finalize_game(player: &signer,
+        gateway_addr: address,
+        ggwp_core_addr: address,
+        contributor_addr: address,
+        project_id: u64,
+        session_id: u64,
+        status: u8,
+    ) acquires GatewayInfo, ProjectInfo, PlayerInfo, Events {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
-    // }
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_PROJECT_NOT_EXISTS);
+        let project_info = borrow_global<ProjectInfo>(contributor_addr);
+        assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
+        assert!(project_info.is_blocked == false, ERR_PROJECT_BLOCKED);
+
+        let player_addr = signer::address_of(player);
+        assert!(exists<PlayerInfo>(player_addr), ERR_PLAYER_INFO_NOT_EXISTS);
+        let player_info = borrow_global_mut<PlayerInfo>(player_addr);
+        assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
+
+        assert!(status < 2, ERR_INVALID_GAME_SESSION_STATUS);
+
+        // Check game session status
+        assert!(table_with_length::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);
+        let sessions = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        assert!(table_with_length::contains(sessions, session_id), ERR_MISSING_GAME_SESSION);
+        let game_session_info = table_with_length::borrow_mut(sessions, session_id);
+        assert!(game_session_info.status == 3, ERR_GAME_SESSION_ALREADY_FINALIZED);
+
+        // Finalize game session
+        let reward = 0;
+        let royalty = 0;
+
+        // If player win pay rewards
+        if (status == 1) {
+            let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+            let play_to_earn_fund_amount = coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund);
+            assert!(play_to_earn_fund_amount != 0, ERR_EMPTY_PLAY_TO_EARN_FUND);
+
+            let reward_amount = calc_reward_amount(
+                play_to_earn_fund_amount,
+                gpass::get_total_users_freezed(ggwp_core_addr),
+                gateway_info.reward_coefficient,
+                gpass::get_daily_gpass_reward(ggwp_core_addr),
+                gateway_info.gpass_daily_reward_coefficient,
+            );
+
+            let royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
+            // Transfer reward_amount - royalty_amount to player from play_to_earn_fund
+            let reward_coins = coin::extract(&mut gateway_info.play_to_earn_fund, reward_amount - royalty_amount);
+            coin::deposit(player_addr, reward_coins);
+            // Transfer royalty_amount to accumulative fund from play_to_earn_fund
+            let royalty_coins = coin::extract(&mut gateway_info.play_to_earn_fund, royalty_amount);
+            coin::deposit(gateway_info.accumulative_fund, royalty_coins);
+        };
+
+        game_session_info.status = status;
+        game_session_info.reward = reward;
+        game_session_info.royalty = royalty;
+
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+        event::emit_event<FinalizeGameEvent>(
+            &mut events.finalize_game_events,
+            FinalizeGameEvent {
+                player: player_addr,
+                project_id: project_id,
+                session_id: session_id,
+                status: status,
+                reward: reward,
+                royalty: royalty,
+                date: now,
+            }
+        );
+    }
 
     // Getters
 
@@ -451,5 +598,34 @@ module gateway::gateway {
     public fun get_player_is_blocked(player_addr: address): bool acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         player_info.is_blocked
+    }
+
+    // Utils.
+    const DECIMALS: u64 = 100000000;
+
+    /// Calculate reward amount for user.
+    public fun calc_reward_amount(
+        play_to_earn_fund_amount: u64,
+        freezed_users: u64,
+        reward_coefficient: u64,
+        gpass_daily_reward: u64,
+        gpass_daily_reward_coefficient: u64,
+    ): u64 {
+        let reward_amount = 0;
+        if (freezed_users != 0) {
+            reward_amount = play_to_earn_fund_amount / (freezed_users * reward_coefficient);
+        };
+
+        let gpass_daily_reward_amount = gpass_daily_reward * DECIMALS;
+        if (reward_amount > gpass_daily_reward_amount) {
+            reward_amount = gpass_daily_reward_amount / gpass_daily_reward_coefficient;
+        };
+
+        reward_amount
+    }
+
+    /// Get the percent value.
+    public fun calc_royalty_amount(amount: u64, royalty: u8): u64 {
+        amount / 100 * (royalty as u64)
     }
 }
