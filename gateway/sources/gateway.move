@@ -26,8 +26,8 @@ module gateway::gateway {
     const ERR_ALREADY_BLOCKED: u64 = 0x1010;
     const ERR_NOT_BLOCKED: u64 = 0x1011;
     const ERR_NOT_ENOUGH_GPASS: u64 = 0x1012;
-    const ERR_USER_INFO_NOT_EXISTS: u64 = 0x1013;
-    const ERR_USER_BLOCKED: u64 = 0x1014;
+    const ERR_PLAYER_INFO_NOT_EXISTS: u64 = 0x1013;
+    const ERR_PLAYER_BLOCKED: u64 = 0x1014;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
@@ -48,7 +48,7 @@ module gateway::gateway {
         gpass_cost: u64,
     }
 
-    struct UserInfo has key, store {
+    struct PlayerInfo has key, store {
         is_blocked: bool,
         game_sessions_counter: u64,
         game_sessions: TableWithLength<u64, TableWithLength<u64, GameSessionInfo>>,
@@ -216,17 +216,17 @@ module gateway::gateway {
         );
     }
 
-    public entry fun block_player(gateway: &signer, player_addr: address, reason: String) acquires UserInfo, Events {
+    public entry fun block_player(gateway: &signer, player_addr: address, reason: String) acquires PlayerInfo, Events {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
-        assert!(exists<UserInfo>(player_addr), ERR_USER_INFO_NOT_EXISTS);
-        let user_info = borrow_global_mut<UserInfo>(player_addr);
-        assert!(user_info.is_blocked == false, ERR_ALREADY_BLOCKED);
+        assert!(exists<PlayerInfo>(player_addr), ERR_PLAYER_INFO_NOT_EXISTS);
+        let player_info = borrow_global_mut<PlayerInfo>(player_addr);
+        assert!(player_info.is_blocked == false, ERR_ALREADY_BLOCKED);
 
-        user_info.is_blocked = true;
+        player_info.is_blocked = true;
 
         let events = borrow_global_mut<Events>(gateway_addr);
         let now = timestamp::now_seconds();
@@ -266,17 +266,17 @@ module gateway::gateway {
         );
     }
 
-    public entry fun unblock_player(gateway: &signer, player_addr: address) acquires UserInfo, Events {
+    public entry fun unblock_player(gateway: &signer, player_addr: address) acquires PlayerInfo, Events {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
-        assert!(exists<UserInfo>(player_addr), ERR_USER_INFO_NOT_EXISTS);
-        let user_info = borrow_global_mut<UserInfo>(player_addr);
-        assert!(user_info.is_blocked == true, ERR_NOT_BLOCKED);
+        assert!(exists<PlayerInfo>(player_addr), ERR_PLAYER_INFO_NOT_EXISTS);
+        let player_info = borrow_global_mut<PlayerInfo>(player_addr);
+        assert!(player_info.is_blocked == true, ERR_NOT_BLOCKED);
 
-        user_info.is_blocked = false;
+        player_info.is_blocked = false;
 
         let events = borrow_global_mut<Events>(gateway_addr);
         let now = timestamp::now_seconds();
@@ -378,7 +378,7 @@ module gateway::gateway {
         gateway_addr: address,
         contributor_addr: address,
         project_id: u64,
-    ) acquires ProjectInfo, UserInfo {
+    ) acquires ProjectInfo, PlayerInfo {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -391,18 +391,18 @@ module gateway::gateway {
         let player_addr = signer::address_of(player);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
-        // Create UserInfo if not exists
-        if (exists<UserInfo>(player_addr) == false) {
+        // Create PlayerInfo if not exists
+        if (exists<PlayerInfo>(player_addr) == false) {
             // table_with_length::new<u64, GameSessionInfo>()
-            move_to(player, UserInfo {
+            move_to(player, PlayerInfo {
                 is_blocked: false,
                 game_sessions_counter: 0,
                 game_sessions: table_with_length::new<u64, TableWithLength<u64, GameSessionInfo>>(),
             });
         };
 
-        let user_info = borrow_global_mut<UserInfo>(player_addr);
-        assert!(user_info.is_blocked == false, ERR_USER_BLOCKED);
+        let player_info = borrow_global_mut<PlayerInfo>(player_addr);
+        assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
 
         // TODO: check already in game? burn gpass, create session, emit event
     }
@@ -448,8 +448,8 @@ module gateway::gateway {
         project_info.is_removed
     }
 
-    public fun get_player_is_blocked(player_addr: address): bool acquires UserInfo {
-        let user_info = borrow_global<UserInfo>(player_addr);
-        user_info.is_blocked
+    public fun get_player_is_blocked(player_addr: address): bool acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        player_info.is_blocked
     }
 }
