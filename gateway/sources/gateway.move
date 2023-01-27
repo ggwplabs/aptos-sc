@@ -512,8 +512,8 @@ module gateway::gateway {
         assert!(game_session_info.status == 3, ERR_GAME_SESSION_ALREADY_FINALIZED);
 
         // Finalize game session
-        let reward = 0;
-        let royalty = 0;
+        let reward_amount = 0;
+        let royalty_amount = 0;
 
         // If player win pay rewards
         if (status == 1) {
@@ -521,7 +521,7 @@ module gateway::gateway {
             let play_to_earn_fund_amount = coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund);
             assert!(play_to_earn_fund_amount != 0, ERR_EMPTY_PLAY_TO_EARN_FUND);
 
-            let reward_amount = calc_reward_amount(
+            reward_amount = calc_reward_amount(
                 play_to_earn_fund_amount,
                 gpass::get_total_users_freezed(ggwp_core_addr),
                 gateway_info.reward_coefficient,
@@ -529,7 +529,7 @@ module gateway::gateway {
                 gateway_info.gpass_daily_reward_coefficient,
             );
 
-            let royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
+            royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
             // Transfer reward_amount - royalty_amount to player from play_to_earn_fund
             let reward_coins = coin::extract(&mut gateway_info.play_to_earn_fund, reward_amount - royalty_amount);
             coin::deposit(player_addr, reward_coins);
@@ -539,8 +539,8 @@ module gateway::gateway {
         };
 
         game_session_info.status = status;
-        game_session_info.reward = reward;
-        game_session_info.royalty = royalty;
+        game_session_info.reward = reward_amount;
+        game_session_info.royalty = royalty_amount;
 
         let events = borrow_global_mut<Events>(gateway_addr);
         let now = timestamp::now_seconds();
@@ -551,8 +551,8 @@ module gateway::gateway {
                 project_id: project_id,
                 session_id: session_id,
                 status: status,
-                reward: reward,
-                royalty: royalty,
+                reward: reward_amount,
+                royalty: royalty_amount,
                 date: now,
             }
         );
@@ -598,6 +598,32 @@ module gateway::gateway {
     public fun get_player_is_blocked(player_addr: address): bool acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         player_info.is_blocked
+    }
+
+    public fun get_player_session_counter(player_addr: address): u64 acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        player_info.game_sessions_counter
+    }
+
+    public fun get_game_session_status(player_addr: address, project_id: u64, session_id: u64): u8 acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let session = table_with_length::borrow(project_sessions, session_id);
+        session.status
+    }
+
+    public fun get_game_session_reward(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let session = table_with_length::borrow(project_sessions, session_id);
+        session.reward
+    }
+
+    public fun get_game_session_royalty(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let session = table_with_length::borrow(project_sessions, session_id);
+        session.royalty
     }
 
     // Utils.
