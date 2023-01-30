@@ -8,6 +8,7 @@ module accumulative_fund::distribution {
 
     use coin::ggwp::GGWPCoin;
     use staking::staking;
+    use gateway::gateway;
 
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
     const ERR_NOT_INITIALIZED: u64 = 0x1001;
@@ -44,7 +45,7 @@ module accumulative_fund::distribution {
 
     /// Initialize distribution contract with information abount funds.
     public entry fun initialize(accumulative_fund: &signer,
-        play_to_earn_fund: address,
+        play_to_earn_fund: address, // gateway_addr
         play_to_earn_fund_share: u8,
         staking_fund: address,
         staking_fund_share: u8,
@@ -111,6 +112,24 @@ module accumulative_fund::distribution {
         distribution_info.team_fund_share = team_fund_share;
     }
 
+    /// Update funds addresses
+    public entry fun update_funds(accumulative_fund: &signer,
+        play_to_earn_fund: address,
+        staking_fund: address,
+        company_fund: address,
+        team_fund: address,
+    ) acquires DistributionInfo {
+        let accumulative_fund_addr = signer::address_of(accumulative_fund);
+        assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
+
+        let distribution_info = borrow_global_mut<DistributionInfo>(accumulative_fund_addr);
+        distribution_info.play_to_earn_fund = play_to_earn_fund;
+        distribution_info.staking_fund = staking_fund;
+        distribution_info.company_fund = company_fund;
+        distribution_info.team_fund = team_fund;
+    }
+
     /// Distribute the funds.
     public entry fun distribute(accumulative_fund: &signer) acquires DistributionInfo, Events {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
@@ -126,10 +145,10 @@ module accumulative_fund::distribution {
 
         let ac_amount_before = amount;
 
-        // Transfer GGWP to play to earn fund
+        // Transfer GGWP to play to earn fund (gateway smart contract)
         let play_to_earn_fund_amount =
             calc_share_amount(amount, distribution_info.play_to_earn_fund_share);
-        coin::transfer<GGWPCoin>(accumulative_fund, distribution_info.play_to_earn_fund, play_to_earn_fund_amount);
+        gateway::play_to_earn_fund_deposit(accumulative_fund, distribution_info.play_to_earn_fund, play_to_earn_fund_amount);
 
         // Transfer GGWP to staking fund
         let staking_fund_amount =

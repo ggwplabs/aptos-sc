@@ -46,6 +46,8 @@ rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = \"../ggwp_coin\" }
+staking = { local = \"../staking\" }
+gateway = { local = \"../gateway\" }
 [addresses]
 accumulative_fund = \"$1\""
     echo "$file_content" > $2
@@ -64,9 +66,9 @@ faucet = \"$1\""
     echo "$file_content" > $2
 }
 
-function update_games {
+function update_gateway {
     local file_content="[package]
-name = 'games'
+name = 'gateway'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
@@ -76,7 +78,7 @@ subdir = 'aptos-move/framework/aptos-framework'
 ggwpcoin = { local = \"../ggwp_coin\" }
 ggwp_core = { local = \"../core\" }
 [addresses]
-games = \"$1\""
+gateway = \"$1\""
     echo "$file_content" > $2
 }
 

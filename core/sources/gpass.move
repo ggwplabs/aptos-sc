@@ -273,7 +273,7 @@ module ggwp_core::gpass {
 
         let gpass_info = borrow_global_mut<GpassInfo>(ggwp_core_addr);
         let events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
-        // Note: burner is the ggwp_games contract.
+        // Note: burner is the ggwp_gateway contract.
         assert!(vector::contains(&gpass_info.burners, &signer::address_of(burner)), ERR_INVALID_BURN_AUTH);
 
         let wallet = borrow_global_mut<Wallet>(from);
