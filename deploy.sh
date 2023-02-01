@@ -1,5 +1,5 @@
 REGENERATE_KEYS="OFF"
-SCRIPT="OFF"
+SCRIPT="ON"
 
 AIRDROP_DEVNET="OFF"
 PUBLISH="OFF"
@@ -28,6 +28,7 @@ then
     yes "" | aptos init --network testnet --profile team_fund --assume-yes
     yes "" | aptos init --network testnet --profile gateway --assume-yes
     yes "" | aptos init --network testnet --profile fighting_contributor --assume-yes
+    yes "" | aptos init --network testnet --profile player --assume-yes
 fi
 
 source utils.sh
@@ -92,6 +93,16 @@ then
     # GATEWAY_DEPOSIT="$GATEWAY::gateway::play_to_earn_fund_deposit"
     # ARGS="address:$GATEWAY u64:2728811381400"
     # aptos move run --function-id $GATEWAY_DEPOSIT --args $ARGS --profile fighting_contributor --assume-yes
+
+    # GATEWAY_SIGN_UP="$GATEWAY::gateway::sign_up"
+    # ARGS="address:$GATEWAY string:project1 u64:5"
+    # aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
+
+    # GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
+    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
+    # aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
+
+    echo "Script end"
 fi
 
 if [[ $AIRDROP_DEVNET == "ON" ]]
