@@ -367,6 +367,7 @@ module ggwp_core::gpass {
         user: address,
         ggwp_amount: u64,
         gpass_amount: u64,
+        royalty: u64,
         date: u64,
     }
 
@@ -381,6 +382,7 @@ module ggwp_core::gpass {
         user: address,
         ggwp_amount: u64,
         gpass_amount: u64,
+        royalty: u64,
         date: u64,
     }
 
@@ -495,7 +497,13 @@ module ggwp_core::gpass {
 
         event::emit_event<FreezeEvent>(
             &mut freezing_events.freeze_events,
-            FreezeEvent { user: user_addr, ggwp_amount: freezed_amount, gpass_amount: gpass_earned, date: now },
+            FreezeEvent {
+                user: user_addr,
+                ggwp_amount: freezed_amount,
+                gpass_amount: gpass_earned,
+                royalty: royalty_amount,
+                date: now
+            },
         );
     }
 
@@ -556,7 +564,12 @@ module ggwp_core::gpass {
 
         event::emit_event<WithdrawEvent>(
             &mut freezing_events.withdraw_events,
-            WithdrawEvent { user: user_addr, ggwp_amount: user_info.freezed_amount, gpass_amount: gpass_earned, date: now },
+            WithdrawEvent {
+                user: user_addr,
+                ggwp_amount: user_info.freezed_amount,
+                gpass_amount: gpass_earned,
+                date: now
+            },
         );
     }
 
@@ -616,10 +629,11 @@ module ggwp_core::gpass {
         };
 
         let amount = user_info.freezed_amount;
+        let royalty_amount = 0;
         freezing_info.total_freezed = freezing_info.total_freezed - amount;
         // Check unfreeze royalty
         if (is_withdraw_royalty(now, user_info.freezed_time, freezing_info.unfreeze_lock_period) == true) {
-            let royalty_amount = calc_royalty_amount(amount, freezing_info.unfreeze_royalty);
+            royalty_amount = calc_royalty_amount(amount, freezing_info.unfreeze_royalty);
             // Transfer royalty_amount into accumulative fund from treasury
             let royalty_coins = coin::extract(&mut freezing_info.treasury, royalty_amount);
             coin::deposit(freezing_info.accumulative_fund, royalty_coins);
@@ -632,7 +646,13 @@ module ggwp_core::gpass {
 
         event::emit_event<UnfreezeEvent>(
             &mut freezing_events.unfreeze_events,
-            UnfreezeEvent { user: user_addr, ggwp_amount: user_info.freezed_amount, gpass_amount: gpass_earned, date: now },
+            UnfreezeEvent {
+                user: user_addr,
+                ggwp_amount: amount,
+                gpass_amount: gpass_earned,
+                royalty: royalty_amount,
+                date: now
+            },
         );
 
         freezing_info.total_users_freezed = freezing_info.total_users_freezed - 1;
