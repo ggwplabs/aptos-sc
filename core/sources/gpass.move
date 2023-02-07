@@ -303,22 +303,27 @@ module ggwp_core::gpass {
     }
 
     // GPASS Getters.
+    #[view]
     public fun get_burn_period(ggwp_core_addr: address): u64 acquires GpassInfo {
         borrow_global<GpassInfo>(ggwp_core_addr).burn_period
     }
 
+    #[view]
     public fun get_total_amount(ggwp_core_addr: address): u64 acquires GpassInfo {
         borrow_global<GpassInfo>(ggwp_core_addr).total_amount
     }
 
+    #[view]
     public fun get_balance(wallet: address): u64 acquires Wallet {
         borrow_global<Wallet>(wallet).amount
     }
 
+    #[view]
     public fun get_last_burned(wallet: address): u64 acquires Wallet {
         borrow_global<Wallet>(wallet).last_burned
     }
 
+    #[view]
     public fun get_burners_list(ggwp_core_addr: address): vector<address> acquires GpassInfo {
         borrow_global<GpassInfo>(ggwp_core_addr).burners
     }
@@ -662,12 +667,14 @@ module ggwp_core::gpass {
 
     // Freezing Getters.
 
+    #[view]
     public fun get_treasury_balance(ggwp_core_addr: address): u64 acquires FreezingInfo {
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         coin::value<GGWPCoin>(&freezing_info.treasury)
     }
 
-    /// Not paid, only earned virtual.
+    // Not paid, only earned virtual.
+    #[view]
     public fun get_earned_gpass_in_time(ggwp_core_addr: address, user_addr: address, time: u64): u64 acquires FreezingInfo, GpassInfo, UserInfo, Wallet {
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
@@ -696,42 +703,52 @@ module ggwp_core::gpass {
         }
     }
 
+    #[view]
     public fun get_last_getting_gpass(user_addr: address): u64 acquires UserInfo {
         borrow_global<UserInfo>(user_addr).last_getting_gpass
     }
 
+    #[view]
     public fun get_freezed_amount(user_addr: address): u64 acquires UserInfo {
         borrow_global<UserInfo>(user_addr).freezed_amount
     }
 
+    #[view]
     public fun get_reward_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).reward_period
     }
 
+    #[view]
     public fun get_royalty(ggwp_core_addr: address): u8 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).royalty
     }
 
+    #[view]
     public fun get_unfreeze_royalty(ggwp_core_addr: address): u8 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).unfreeze_royalty
     }
 
+    #[view]
     public fun get_unfreeze_lock_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).unfreeze_lock_period
     }
 
+    #[view]
     public fun get_total_freezed(ggwp_core_addr: address): u64 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).total_freezed
     }
 
+    #[view]
     public fun get_total_users_freezed(ggwp_core_addr: address): u64 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).total_users_freezed
     }
 
+    #[view]
     public fun get_daily_gpass_reward(ggwp_core_addr: address): u64 acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).daily_gpass_reward
     }
 
+    #[view]
     public fun get_reward_table(ggwp_core_addr: address): vector<RewardTableRow> acquires FreezingInfo {
         borrow_global<FreezingInfo>(ggwp_core_addr).reward_table
     }

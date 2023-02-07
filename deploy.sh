@@ -1,5 +1,5 @@
 REGENERATE_KEYS="OFF"
-SCRIPT="ON"
+SCRIPT="OFF"
 
 AIRDROP_DEVNET="OFF"
 PUBLISH="OFF"
@@ -98,9 +98,13 @@ then
     # ARGS="address:$GATEWAY string:project1 u64:5"
     # aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
 
-    # GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
-    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
-    # aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
+    GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
+    ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
+    aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
+
+    # GATEWAY_FINALIZE_GAME="$GATEWAY::gateway::finalize_game"
+    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1 u64:2 u8:1"
+    # aptos move run --function-id $GATEWAY_FINALIZE_GAME --args $ARGS --profile player --assume-yes
 
     echo "Script end"
 fi
@@ -159,16 +163,16 @@ then
     aptos move publish --profile faucet --package-dir faucet --assume-yes
 
     echo "Deploy staking.."
-    aptos move publish --profile staking --package-dir staking --assume-yes
+    aptos move publish --profile staking --package-dir staking --bytecode-version 6 --assume-yes
 
     echo "Deploy ggwp_core.."
-    aptos move publish --profile core --package-dir core --assume-yes
+    aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
 
     echo "Deploy accumulative fund distribution.."
     aptos move publish --profile distribution --package-dir distribution --assume-yes
 
     echo "Deploy gateway sc.."
-    aptos move publish --profile gateway --package-dir gateway --assume-yes
+    aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
 echo "------------------------------"

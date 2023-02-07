@@ -605,6 +605,7 @@ module gateway::gateway {
         player_info.game_sessions_counter
     }
 
+    #[view]
     public fun get_game_session_status(player_addr: address, project_id: u64, session_id: u64): u8 acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
