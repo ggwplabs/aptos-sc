@@ -560,49 +560,75 @@ module gateway::gateway {
 
     // Getters
 
+    #[view]
     public fun play_to_earn_fund_balance(gateway_addr: address): u64 acquires GatewayInfo {
         let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
         coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund)
     }
 
+    #[view]
     public fun get_project_counter(gateway_addr: address): u64 acquires GatewayInfo {
         let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
         gateway_info.project_counter
     }
 
+    #[view]
     public fun get_project_id(contributor_addr: address): u64 acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.id
     }
 
-     public fun get_project_gpass_cost(contributor_addr: address): u64 acquires ProjectInfo {
+    #[view]
+    public fun get_project_gpass_cost(contributor_addr: address): u64 acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.gpass_cost
     }
 
+    #[view]
     public fun get_project_name(contributor_addr: address): String acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.name
     }
 
+    #[view]
     public fun get_project_is_blocked(contributor_addr: address): bool acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.is_blocked
     }
 
+    #[view]
     public fun get_project_is_removed(contributor_addr: address): bool acquires ProjectInfo {
         let project_info = borrow_global<ProjectInfo>(contributor_addr);
         project_info.is_removed
     }
 
+    #[view]
     public fun get_player_is_blocked(player_addr: address): bool acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         player_info.is_blocked
     }
 
+    #[view]
     public fun get_player_session_counter(player_addr: address): u64 acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         player_info.game_sessions_counter
+    }
+
+    #[view]
+    public fun get_open_session(player_addr: address, project_id: u64): u64 acquires PlayerInfo {
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let session_id = 1;
+        while (session_id <= player_info.game_sessions_counter) {
+            let session = table_with_length::borrow(project_sessions, session_id);
+            if (session.status == GAME_STATUS_NONE) {
+                return session_id
+            };
+
+            session_id = session_id + 1;
+        };
+
+        session_id
     }
 
     #[view]
@@ -613,6 +639,7 @@ module gateway::gateway {
         session.status
     }
 
+    #[view]
     public fun get_game_session_reward(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
@@ -620,6 +647,7 @@ module gateway::gateway {
         session.reward
     }
 
+    #[view]
     public fun get_game_session_royalty(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
         let player_info = borrow_global<PlayerInfo>(player_addr);
         let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
