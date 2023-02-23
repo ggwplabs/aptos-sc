@@ -1,5 +1,5 @@
 [package]
-name = 'games'
+name = 'gateway'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
@@ -9,4 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 ggwpcoin = { local = "../ggwp_coin" }
 ggwp_core = { local = "../core" }
 [addresses]
-games = "0x3dd2eb713a9f50bf722ccbd9deaee12f8faaf45b40636585b47ecb8dd888104a"
+gateway = "0x1aa38eedfdad9b1c781d3adbbcd4c7af31f80154248b572383207c06c452f0d8"

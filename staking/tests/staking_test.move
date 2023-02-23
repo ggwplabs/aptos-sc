@@ -17,6 +17,7 @@ module staking::staking_test {
     #[expected_failure(abort_code = 0x1001, location = staking::staking)]
     public entry fun withdraw_before_stake_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -55,6 +56,7 @@ module staking::staking_test {
     #[expected_failure(abort_code = 0x1009, location = staking::staking)]
     public entry fun additional_stake_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -102,6 +104,7 @@ module staking::staking_test {
     #[test(staking = @staking, ggwp_coin = @coin, accumulative_fund = @0x11223344, user1 = @0x11, user2 = @0x22, user3 = @0x33, funder = @0x44)]
     public entry fun functional(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer, user2: &signer, user3: &signer, funder: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -151,6 +154,7 @@ module staking::staking_test {
         let now = timestamp::now_seconds();
         staking::initialize(staking, ac_fund_addr, epoch_period, min_stake_amount, hold_period, hold_royalty, royalty, apr_start, apr_step, apr_end);
         assert!(staking::get_total_staked(staking_addr) == 0, 1);
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now, 1);
 
         // User1 stake amount of tokens (3000 GGWP)
         let amount1 = 300000000000;
@@ -186,6 +190,7 @@ module staking::staking_test {
 
         // Spent 2 epochs
         timestamp::update_global_time_for_test_secs(now + 2 * epoch_period);
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now + 2 * epoch_period, 1);
         let now = now + 2 * epoch_period;
 
         // Mint tokens to staking fund to pay rewards
@@ -205,6 +210,7 @@ module staking::staking_test {
 
         // User3 stake amount of tokens not in 1 epoch
         timestamp::update_global_time_for_test_secs(now + 10 * epoch_period);
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now + 10 * epoch_period, 1);
 
         let staking_fund_balance_before = staking_fund_balance_before - amount1 - reward_amount1;
 
@@ -220,6 +226,7 @@ module staking::staking_test {
 
         let now = now + 10 * epoch_period;
         timestamp::update_global_time_for_test_secs(now + 3 * epoch_period);
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now + 3 * epoch_period, 1);
 
         // User3 withdraw reward for 3 epochs
         let reward_amount3 = staking::get_user_unpaid_reward(staking_addr, user3_addr);
@@ -236,6 +243,7 @@ module staking::staking_test {
     #[expected_failure(abort_code = 0x1008, location = staking::staking)]
     public entry fun min_stake_amount_test(staking: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -274,6 +282,7 @@ module staking::staking_test {
     #[expected_failure(abort_code = 0x1001, location = staking::staking)]
     public entry fun update_before_initialize(staking: &signer, accumulative_fund: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -291,6 +300,7 @@ module staking::staking_test {
     #[test(staking = @staking, accumulative_fund = @0x11223344)]
     public entry fun initialize_update_params_test(staking: &signer, accumulative_fund: &signer) {
         genesis::setup();
+        timestamp::update_global_time_for_test_secs(TIME);
 
         let staking_addr = signer::address_of(staking);
         let ac_fund_addr = signer::address_of(accumulative_fund);
@@ -319,12 +329,16 @@ module staking::staking_test {
         assert!(staking::get_apr_step(staking_addr) == 1, 1);
         assert!(staking::get_apr_end(staking_addr) == 5, 1);
 
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now, 1);
+
         staking::update_params(staking, 100, 200, 300, 1, 2);
         assert!(staking::get_epoch_period(staking_addr) == 100, 1);
         assert!(staking::get_min_stake_amount(staking_addr) == 200, 1);
         assert!(staking::get_hold_period(staking_addr) == 300, 1);
         assert!(staking::get_hold_royalty(staking_addr) == 1, 1);
         assert!(staking::get_royalty(staking_addr) == 2, 1);
+
+        assert!(staking::get_current_epoch_start_time(staking_addr) == now, 1);
     }
 
     #[test]
