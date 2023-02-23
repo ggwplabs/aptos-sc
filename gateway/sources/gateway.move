@@ -439,6 +439,7 @@ module gateway::gateway {
 
         let player_info = borrow_global_mut<PlayerInfo>(player_addr);
         assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
+        assert!(gpass::get_burn_period_passed(ggwp_core_addr, player_addr) == false, ERR_NOT_ENOUGH_GPASS);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
         // Burn gpass_cost GPASS from user wallet
@@ -502,7 +503,7 @@ module gateway::gateway {
         let player_info = borrow_global_mut<PlayerInfo>(player_addr);
         assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
 
-        assert!(status < 2, ERR_INVALID_GAME_SESSION_STATUS);
+        assert!(status < 3, ERR_INVALID_GAME_SESSION_STATUS);
 
         // Check game session status
         assert!(table_with_length::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);

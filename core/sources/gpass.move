@@ -238,7 +238,7 @@ module ggwp_core::gpass {
         let events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let wallet = borrow_global_mut<Wallet>(user_addr);
 
-        // Try to burn amount before mint
+        // Try to burn amount before burn
         let now = timestamp::now_seconds();
         if (now - wallet.last_burned >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
@@ -306,6 +306,20 @@ module ggwp_core::gpass {
     #[view]
     public fun get_burn_period(ggwp_core_addr: address): u64 acquires GpassInfo {
         borrow_global<GpassInfo>(ggwp_core_addr).burn_period
+    }
+
+    #[view]
+    public fun get_burn_period_passed(ggwp_core_addr: address, user_addr: address): bool acquires GpassInfo, Wallet {
+        let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
+        let wallet = borrow_global<Wallet>(user_addr);
+
+        let now = timestamp::now_seconds();
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
+            true
+        } else {
+            false
+        }
     }
 
     #[view]
@@ -544,6 +558,8 @@ module ggwp_core::gpass {
             last = user_wallet.last_burned;
         };
 
+
+
         let gpass_earned = calc_earned_gpass(
             &freezing_info.reward_table,
             user_info.freezed_amount,
@@ -599,8 +615,12 @@ module ggwp_core::gpass {
         assert!(user_info.freezed_amount != 0, ERR_ZERO_UNFREEZE_AMOUNT);
 
         // Check users earned gpass
-        let now = timestamp::now_seconds();
         let last = user_info.last_getting_gpass;
+        if (user_wallet.last_burned > user_info.last_getting_gpass) {
+            last = user_wallet.last_burned;
+        };
+
+        let now = timestamp::now_seconds();
         let spent_time = now - user_wallet.last_burned;
         if (spent_time >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
