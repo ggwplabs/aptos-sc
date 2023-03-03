@@ -268,27 +268,32 @@ module staking::staking {
 
     #[view]
     public fun get_staking_fund_balance(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         coin::value<GGWPCoin>(&staking_info.staking_fund)
     }
 
     #[view]
     public fun get_total_staked(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).total_staked
     }
 
     #[view]
     public fun get_start_time(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).start_time
     }
 
     #[view]
     public fun get_epoch_period(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).epoch_period
     }
 
     #[view]
     public fun get_current_epoch_start_time(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         let now = timestamp::now_seconds();
 
@@ -302,51 +307,61 @@ module staking::staking {
 
     #[view]
     public fun get_min_stake_amount(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).min_stake_amount
     }
 
     #[view]
     public fun get_hold_period(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).hold_period
     }
 
     #[view]
     public fun get_hold_royalty(staking_addr: address): u8 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).hold_royalty
     }
 
     #[view]
     public fun get_royalty(staking_addr: address): u8 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).royalty
     }
 
     #[view]
     public fun get_apr_start(staking_addr: address): u8 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).apr_start
     }
 
     #[view]
     public fun get_apr_step(staking_addr: address): u8 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).apr_step
     }
 
     #[view]
     public fun get_apr_end(staking_addr: address): u8 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         borrow_global<StakingInfo>(staking_addr).apr_end
     }
 
     #[view]
     public fun get_staked(user_addr: address): u64 acquires UserInfo {
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         borrow_global<UserInfo>(user_addr).amount
     }
 
     #[view]
     public fun get_stake_time(user_addr: address): u64 acquires UserInfo {
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         borrow_global<UserInfo>(user_addr).stake_time
     }
 
     #[view]
     public fun get_epoch_for_time(staking_addr: address, time: u64): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         let (epoch, _) = get_epoch_by_time(staking_info.start_time, time, staking_info.epoch_period);
         epoch
@@ -354,6 +369,7 @@ module staking::staking {
 
     #[view]
     public fun get_current_epoch(staking_addr: address): u64 acquires StakingInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         let now = timestamp::now_seconds();
         let (epoch, _) = get_epoch_by_time(staking_info.start_time, now, staking_info.epoch_period);
@@ -362,6 +378,8 @@ module staking::staking {
 
     #[view]
     public fun get_user_unpaid_reward_for_time(staking_addr: address, user_addr: address, time: u64): u64 acquires StakingInfo, UserInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         let user_info = borrow_global<UserInfo>(user_addr);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         calc_user_reward_amount(
@@ -378,6 +396,8 @@ module staking::staking {
 
     #[view]
     public fun get_user_unpaid_reward(staking_addr: address, user_addr: address): u64 acquires StakingInfo, UserInfo {
+        assert!(exists<StakingInfo>(staking_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         let user_info = borrow_global<UserInfo>(user_addr);
         let staking_info = borrow_global<StakingInfo>(staking_addr);
         let now = timestamp::now_seconds();
