@@ -305,11 +305,13 @@ module ggwp_core::gpass {
     // GPASS Getters.
     #[view]
     public fun get_burn_period(ggwp_core_addr: address): u64 acquires GpassInfo {
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<GpassInfo>(ggwp_core_addr).burn_period
     }
 
     #[view]
     public fun get_burn_period_passed(ggwp_core_addr: address, user_addr: address): bool acquires GpassInfo, Wallet {
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
         let wallet = borrow_global<Wallet>(user_addr);
 
@@ -324,21 +326,25 @@ module ggwp_core::gpass {
 
     #[view]
     public fun get_total_amount(ggwp_core_addr: address): u64 acquires GpassInfo {
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<GpassInfo>(ggwp_core_addr).total_amount
     }
 
     #[view]
     public fun get_balance(wallet: address): u64 acquires Wallet {
+        assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
         borrow_global<Wallet>(wallet).amount
     }
 
     #[view]
     public fun get_last_burned(wallet: address): u64 acquires Wallet {
+        assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
         borrow_global<Wallet>(wallet).last_burned
     }
 
     #[view]
     public fun get_burners_list(ggwp_core_addr: address): vector<address> acquires GpassInfo {
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<GpassInfo>(ggwp_core_addr).burners
     }
 
@@ -689,6 +695,7 @@ module ggwp_core::gpass {
 
     #[view]
     public fun get_treasury_balance(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         coin::value<GGWPCoin>(&freezing_info.treasury)
     }
@@ -696,6 +703,11 @@ module ggwp_core::gpass {
     // Not paid, only earned virtual.
     #[view]
     public fun get_earned_gpass_in_time(ggwp_core_addr: address, user_addr: address, time: u64): u64 acquires FreezingInfo, GpassInfo, UserInfo, Wallet {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Wallet>(user_addr), ERR_NOT_INITIALIZED);
+
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
         let user_info = borrow_global<UserInfo>(user_addr);
@@ -725,51 +737,61 @@ module ggwp_core::gpass {
 
     #[view]
     public fun get_last_getting_gpass(user_addr: address): u64 acquires UserInfo {
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         borrow_global<UserInfo>(user_addr).last_getting_gpass
     }
 
     #[view]
     public fun get_freezed_amount(user_addr: address): u64 acquires UserInfo {
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         borrow_global<UserInfo>(user_addr).freezed_amount
     }
 
     #[view]
     public fun get_reward_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).reward_period
     }
 
     #[view]
     public fun get_royalty(ggwp_core_addr: address): u8 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).royalty
     }
 
     #[view]
     public fun get_unfreeze_royalty(ggwp_core_addr: address): u8 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).unfreeze_royalty
     }
 
     #[view]
     public fun get_unfreeze_lock_period(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).unfreeze_lock_period
     }
 
     #[view]
     public fun get_total_freezed(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).total_freezed
     }
 
     #[view]
     public fun get_total_users_freezed(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).total_users_freezed
     }
 
     #[view]
     public fun get_daily_gpass_reward(ggwp_core_addr: address): u64 acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).daily_gpass_reward
     }
 
     #[view]
     public fun get_reward_table(ggwp_core_addr: address): vector<RewardTableRow> acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
         borrow_global<FreezingInfo>(ggwp_core_addr).reward_table
     }
 
