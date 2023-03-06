@@ -312,6 +312,7 @@ module ggwp_core::gpass {
     #[view]
     public fun get_burn_period_passed(ggwp_core_addr: address, user_addr: address): bool acquires GpassInfo, Wallet {
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
         let wallet = borrow_global<Wallet>(user_addr);
 
