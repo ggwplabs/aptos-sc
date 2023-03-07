@@ -639,7 +639,7 @@ module gateway::gateway {
             session_id = session_id + 1;
         };
 
-        session_id
+        return 0
     }
 
     #[view]
