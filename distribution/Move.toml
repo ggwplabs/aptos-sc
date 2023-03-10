@@ -10,4 +10,4 @@ ggwpcoin = { local = "../ggwp_coin" }
 staking = { local = "../staking" }
 gateway = { local = "../gateway" }
 [addresses]
-accumulative_fund = "0x265a3274fadb17284cef3887f6779741ede442f5e5ab123c1cf63253c73f0686"
+accumulative_fund = "0x640d500e88b961bb10d6bd95dc05d6a76c8789a73bc160edd441633bb2435fd8"

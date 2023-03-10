@@ -94,13 +94,13 @@ then
     # ARGS="address:$GATEWAY u64:2728811381400"
     # aptos move run --function-id $GATEWAY_DEPOSIT --args $ARGS --profile fighting_contributor --assume-yes
 
-    # GATEWAY_SIGN_UP="$GATEWAY::gateway::sign_up"
-    # ARGS="address:$GATEWAY string:project1 u64:5"
-    # aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
+    GATEWAY_SIGN_UP="$GATEWAY::gateway::sign_up"
+    ARGS="address:$GATEWAY string:rough_rules u64:1"
+    aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
 
-    GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
-    ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
-    aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
+    # GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
+    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
+    # aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
 
     # GATEWAY_FINALIZE_GAME="$GATEWAY::gateway::finalize_game"
     # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1 u64:2 u8:1"
@@ -157,10 +157,10 @@ echo "------------------------------"
 if [[ $PUBLISH == "ON" ]]
 then
     echo "Deploy ggwp_coin.."
-    aptos move publish --profile coin --package-dir ggwp_coin --assume-yes
+    aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
 
     echo "Deploy faucet.."
-    aptos move publish --profile faucet --package-dir faucet --assume-yes
+    aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
 
     echo "Deploy staking.."
     aptos move publish --profile staking --package-dir staking --bytecode-version 6 --assume-yes
@@ -169,7 +169,7 @@ then
     aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
 
     echo "Deploy accumulative fund distribution.."
-    aptos move publish --profile distribution --package-dir distribution --assume-yes
+    aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
 
     echo "Deploy gateway sc.."
     aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
@@ -225,9 +225,9 @@ then
     # Initialize staking
     echo "Initialize staking"
     accumulative_fund=$ACCUMULATIVE_FUND
-    let epoch_period=2*24*60*60
+    let epoch_period=45*24*60*60
     min_stake_amount=300000000000
-    let hold_period=1*24*60*60
+    let hold_period=30*24*60*60
     hold_royalty=15
     royalty=8
     apr_start=45
@@ -242,11 +242,11 @@ then
     # Initialize ggwp core
     echo "Initialize ggwp core (gpass, freezing)"
     accumulative_fund=$ACCUMULATIVE_FUND
-    let burn_period=1*24*60*60
-    let reward_period=6*60*60
+    let burn_period=30*24*60*60
+    let reward_period=1*24*60*60
     royalty=8
     unfreeze_royalty=15
-    let unfreeze_lock_period=1*24*60*60
+    let unfreeze_lock_period=15*24*60*60
     ARGS="address:$accumulative_fund u64:$burn_period u64:$reward_period u8:$royalty u8:$unfreeze_royalty u64:$unfreeze_lock_period"
     aptos move run --function-id $GGWP_CORE_INITIALIZE --args $ARGS --profile core --assume-yes
 
