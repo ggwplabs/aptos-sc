@@ -8,4 +8,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = "../ggwp_coin" }
 [addresses]
-staking = "0x1f19ab535bfa7a447c171607ab704c7aae226826502fdbe69d82a7a812ddbb51"
+staking = "0xdf40bc30a3de56bb8d6ede61888873f3ab92a57d4a8d5b6d4ae4c94e660d84ec"

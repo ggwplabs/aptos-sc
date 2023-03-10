@@ -6,4 +6,4 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 [addresses]
-coin = "0x57de268d237c952d9598180e90c751f1d5831358bf644d8750f455310961d86f"
+coin = "0x8451395ae6ad8b94335e39b2e2b8507d370404c6a4a03f4b4888b750a74d123b"

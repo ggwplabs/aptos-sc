@@ -52,7 +52,6 @@ module ggwp_core::gpass {
         assert!(royalty <= 100, ERR_INVALID_ROYALTY);
         assert!(unfreeze_royalty <= 100, ERR_INVALID_ROYALTY);
 
-
         if (!exists<GpassInfo>(ggwp_core_addr)) {
             let gpass_info = GpassInfo {
                 burn_period: burn_period,
@@ -740,6 +739,12 @@ module ggwp_core::gpass {
     public fun get_last_getting_gpass(user_addr: address): u64 acquires UserInfo {
         assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
         borrow_global<UserInfo>(user_addr).last_getting_gpass
+    }
+
+    #[view]
+    public fun get_freezed_time(user_addr: address): u64 acquires UserInfo {
+        assert!(exists<UserInfo>(user_addr), ERR_NOT_INITIALIZED);
+        borrow_global<UserInfo>(user_addr).freezed_time
     }
 
     #[view]

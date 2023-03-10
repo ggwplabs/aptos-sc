@@ -6,4 +6,4 @@ git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'main'
 subdir = 'aptos-move/framework/aptos-framework'
 [addresses]
-faucet = "0xf1a9e4828f80ac6c7c64590a450fca0763f30f5dac6883e2647ec52e55897bd6"
+faucet = "0x87947af5e40c8b816cf9cd5a9f97054a1d96e18609a893631e34cd3c14f09436"
