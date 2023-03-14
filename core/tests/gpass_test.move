@@ -95,21 +95,21 @@ module ggwp_core::gpass_test {
         gpass::initialize(core_signer, ac_fund_addr, burn_period, 7000, 8, 15, 300);
 
         gpass::create_wallet(user);
-        assert!(gpass::get_balance(user_addr) == 0, 1);
+        assert!(gpass::get_balance(user_addr, core_addr) == 0, 1);
         assert!(gpass::get_last_burned(user_addr) == now, 2);
 
         gpass::mint_to(core_addr, user_addr, 5);
-        assert!(gpass::get_balance(user_addr) == 5, 3);
+        assert!(gpass::get_balance(user_addr, core_addr) == 5, 3);
         assert!(gpass::get_total_amount(core_addr) == 5, 4);
 
         gpass::mint_to(core_addr, user_addr, 10);
-        assert!(gpass::get_balance(user_addr) == 15, 5);
+        assert!(gpass::get_balance(user_addr, core_addr) == 15, 5);
         assert!(gpass::get_total_amount(core_addr) == 15, 6);
 
         timestamp::update_global_time_for_test_secs(now + burn_period);
 
         gpass::mint_to(core_addr, user_addr, 5);
-        assert!(gpass::get_balance(user_addr) == 5, 8);
+        assert!(gpass::get_balance(user_addr, core_addr) == 5, 8);
         assert!(gpass::get_total_amount(core_addr) == 5, 9);
     }
 
@@ -134,34 +134,34 @@ module ggwp_core::gpass_test {
 
         gpass::create_wallet(user1);
         gpass::create_wallet(user2);
-        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 1);
         assert!(gpass::get_last_burned(user1_addr) == now, 2);
-        assert!(gpass::get_balance(user2_addr) == 0, 3);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 0, 3);
         assert!(gpass::get_last_burned(user2_addr) == now, 4);
 
         gpass::mint_to(core_addr, user1_addr, 10);
-        assert!(gpass::get_balance(user1_addr) == 10, 5);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 10, 5);
         assert!(gpass::get_total_amount(core_addr) == 10, 6);
 
         gpass::mint_to(core_addr, user2_addr, 15);
-        assert!(gpass::get_balance(user2_addr) == 15, 7);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 15, 7);
         assert!(gpass::get_total_amount(core_addr) == 25, 8);
 
         gpass::burn_from(burner, core_addr, user2_addr, 10);
-        assert!(gpass::get_balance(user2_addr) == 5, 9);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 5, 9);
         assert!(gpass::get_total_amount(core_addr) == 15, 10);
 
         gpass::burn(user1, core_addr, 2);
-        assert!(gpass::get_balance(user1_addr) == 8, 13);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 8, 13);
 
         timestamp::update_global_time_for_test_secs(now + burn_period);
 
         gpass::burn_from(burner, core_addr, user1_addr, 3);
-        assert!(gpass::get_balance(user1_addr) == 0, 11);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 11);
         assert!(gpass::get_total_amount(core_addr) == 5, 12);
 
         gpass::burn_from(burner, core_addr, user2_addr, 3);
-        assert!(gpass::get_balance(user1_addr) == 0, 13);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 13);
         assert!(gpass::get_total_amount(core_addr) == 0, 14);
     }
 
@@ -197,13 +197,13 @@ module ggwp_core::gpass_test {
         gpass::add_reward_table_row(core_signer, 15000 * 100000000, 15);
 
         gpass::create_wallet(user1);
-        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 1);
         assert!(gpass::get_last_burned(user1_addr) == now, 2);
 
         // User1 freeze 5000 GGWP
         let freeze_amount1 = 5000 * 100000000;
         gpass::freeze_tokens(user1, core_addr, freeze_amount1);
-        assert!(gpass::get_balance(user1_addr) == 5, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 5, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == false, 1);
@@ -213,14 +213,14 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == true, 1);
 
         gpass::burn(user1, core_addr, 5);
-        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 1);
 
         let now = now + 4 * (12 * 60 * 60) + (2 * 60);
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == false, 1);
 
         gpass::unfreeze(user1, core_addr);
-        assert!(gpass::get_balance(user1_addr) == 10, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 10, 1);
     }
 
     #[test(core_signer = @ggwp_core, ggwp_coin = @coin, accumulative_fund = @0x11112222, user1 = @0x11, user2 = @0x22)]
@@ -263,9 +263,9 @@ module ggwp_core::gpass_test {
 
         gpass::create_wallet(user1);
         gpass::create_wallet(user2);
-        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 1);
         assert!(gpass::get_last_burned(user1_addr) == now, 2);
-        assert!(gpass::get_balance(user2_addr) == 0, 3);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 0, 3);
         assert!(gpass::get_last_burned(user2_addr) == now, 4);
 
         // User1 freeze 5000 GGWP
@@ -274,7 +274,7 @@ module ggwp_core::gpass_test {
         gpass::freeze_tokens(user1, core_addr, freeze_amount1);
         assert!(coin::balance<GGWPCoin>(user1_addr) == (user1_init_balance - freeze_amount1 - royalty_amount1), 1);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1, 1);
-        assert!(gpass::get_balance(user1_addr) == 5, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 5, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
         assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
@@ -287,7 +287,7 @@ module ggwp_core::gpass_test {
         gpass::freeze_tokens(user2, core_addr, freeze_amount2);
         assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_init_balance - freeze_amount2 - royalty_amount2), 1);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2, 1);
-        assert!(gpass::get_balance(user2_addr) == 10, 1);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 10, 1);
         assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
         assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1 + freeze_amount2, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1 + freeze_amount2, 1);
@@ -302,7 +302,7 @@ module ggwp_core::gpass_test {
         timestamp::update_global_time_for_test_secs(now);
 
         gpass::withdraw_gpass(user1, core_addr);
-        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 15, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
 
         // User1 withdraw gpass after burn period
@@ -311,7 +311,7 @@ module ggwp_core::gpass_test {
         timestamp::update_global_time_for_test_secs(now);
 
         gpass::withdraw_gpass(user1, core_addr);
-        assert!(gpass::get_balance(user1_addr) == 5, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 5, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
 
         // User2 unfreeze tokens without unfreeze royalty
@@ -319,7 +319,7 @@ module ggwp_core::gpass_test {
         assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_init_balance - royalty_amount2), 1);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2, 1);
         assert!(gpass::get_freezed_amount(user2_addr) == 0, 1);
-        assert!(gpass::get_balance(user2_addr) == 10, 1);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 10, 1);
         assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
         assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
@@ -337,7 +337,7 @@ module ggwp_core::gpass_test {
         assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_before_balance - freeze_amount3 - royalty_amount3), 1);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2 + royalty_amount3, 1);
         assert!(gpass::get_freezed_amount(user2_addr) == freeze_amount3, 1);
-        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 15, 1);
         assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
         assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1 + freeze_amount3, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1 + freeze_amount3, 1);
@@ -348,7 +348,7 @@ module ggwp_core::gpass_test {
 
         assert!(coin::balance<GGWPCoin>(user2_addr) == (user2_before_balance - royalty_amount3 - unfreeze_royalty_amount), 1);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == royalty_amount1 + royalty_amount2 + royalty_amount3 + unfreeze_royalty_amount, 1);
-        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 15, 1);
         assert!(gpass::get_last_getting_gpass(user2_addr) == now, 1);
         assert!(gpass::get_treasury_balance(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
@@ -363,7 +363,7 @@ module ggwp_core::gpass_test {
 
         assert!(gpass::get_earned_gpass_in_time(core_addr, user2_addr, now) == 15, 1);
         gpass::withdraw_gpass(user2, core_addr);
-        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_balance(user2_addr, core_addr) == 15, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user2_addr, now) == 0, 1);
     }
 
@@ -399,13 +399,13 @@ module ggwp_core::gpass_test {
         gpass::add_reward_table_row(core_signer, 15000 * 100000000, 15);
 
         gpass::create_wallet(user1);
-        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 0, 1);
         assert!(gpass::get_last_burned(user1_addr) == now, 2);
 
         // User1 freeze 15000 GGWP
         let freeze_amount1 = 15000 * 100000000;
         gpass::freeze_tokens(user1, core_addr, freeze_amount1);
-        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 15, 1);
         assert!(gpass::get_last_getting_gpass(user1_addr) == now, 1);
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_total_users_freezed(core_addr) == 1, 1);
@@ -416,7 +416,7 @@ module ggwp_core::gpass_test {
 
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 30, 1);
         gpass::withdraw_gpass(user1, core_addr);
-        assert!(gpass::get_balance(user1_addr) == 30, 1);
+        assert!(gpass::get_balance(user1_addr, core_addr) == 30, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
     }
 }

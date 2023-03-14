@@ -331,9 +331,20 @@ module ggwp_core::gpass {
     }
 
     #[view]
-    public fun get_balance(wallet: address): u64 acquires Wallet {
+    public fun get_balance(wallet: address, ggwp_core_addr: address): u64 acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
-        borrow_global<Wallet>(wallet).amount
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
+        let wallet = borrow_global<Wallet>(wallet);
+
+        let now = timestamp::now_seconds();
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
+            return 0
+        } else {
+            return wallet.amount
+        }
     }
 
     #[view]
