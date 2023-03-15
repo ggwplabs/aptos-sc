@@ -47,7 +47,7 @@ module gateway::gateway_test {
         gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
 
         gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 10, 1);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
 
         let reward_coefficient = 20000;
@@ -69,14 +69,14 @@ module gateway::gateway_test {
         assert!(gateway::get_game_session_status(player_addr, 1, 1) == 3, 1);
         assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 0, 1);
         assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 0, 1);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 5, 1);
+        assert!(gpass::get_balance(player_addr) == 5, 1);
 
         // Finalize game and get reward
         let status = 1;
         gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, 1, status);
         assert!(gateway::play_to_earn_fund_balance(gateway_addr) == 9999500000, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000460000, 1);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 5, 1);
+        assert!(gpass::get_balance(player_addr) == 5, 1);
         assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
         assert!(gateway::get_game_session_status(player_addr, 1, 1) == 1, 1);
         assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 500000, 1);
@@ -95,7 +95,7 @@ module gateway::gateway_test {
         gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
 
         gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 10, 1);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
 
         let reward_coefficient = 20000;
@@ -132,7 +132,7 @@ module gateway::gateway_test {
         gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
 
         gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 10, 1);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
 
         let reward_coefficient = 20000;
@@ -168,7 +168,7 @@ module gateway::gateway_test {
         gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
 
         gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 10, 1);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
 
         let reward_coefficient = 20000;
@@ -370,7 +370,7 @@ module gateway::gateway_test {
         gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
 
         gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) == 10, 1);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
 
         let reward_coefficient = 20000;

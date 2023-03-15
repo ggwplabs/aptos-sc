@@ -440,7 +440,7 @@ module gateway::gateway {
         let player_info = borrow_global_mut<PlayerInfo>(player_addr);
         assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
         assert!(gpass::get_burn_period_passed(ggwp_core_addr, player_addr) == false, ERR_NOT_ENOUGH_GPASS);
-        assert!(gpass::get_balance(player_addr, ggwp_core_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
+        assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
         // Burn gpass_cost GPASS from user wallet
         gpass::burn(player, ggwp_core_addr, project_info.gpass_cost);

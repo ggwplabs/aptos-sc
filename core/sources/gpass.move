@@ -331,7 +331,13 @@ module ggwp_core::gpass {
     }
 
     #[view]
-    public fun get_balance(wallet: address, ggwp_core_addr: address): u64 acquires Wallet, GpassInfo {
+    public fun get_balance(wallet: address): u64 acquires Wallet {
+        assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
+        borrow_global<Wallet>(wallet).amount
+    }
+
+    #[view]
+    public fun get_virtual_balance(wallet: address, ggwp_core_addr: address): u64 acquires Wallet, GpassInfo {
         assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
         assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
 
