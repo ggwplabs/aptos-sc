@@ -191,10 +191,13 @@ module ggwp_core::gpass {
         let wallet = borrow_global_mut<Wallet>(to);
 
         let now = timestamp::now_seconds();
-        if (now - wallet.last_burned >= gpass_info.burn_period) {
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
-            wallet.last_burned = now;
+
+            let burn_periods_passed = spent_time / gpass_info.burn_period;
+            wallet.last_burned = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
 
             event::emit_event<BurnEvent>(
                 &mut events.burn_events,
@@ -218,6 +221,7 @@ module ggwp_core::gpass {
         if (spent_time >= gpass_info.burn_period) {
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
+
             let burn_periods_passed = spent_time / gpass_info.burn_period;
             wallet.last_burned = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
         };
@@ -239,7 +243,8 @@ module ggwp_core::gpass {
 
         // Try to burn amount before burn
         let now = timestamp::now_seconds();
-        if (now - wallet.last_burned >= gpass_info.burn_period) {
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
                 &mut events.burn_events,
                 BurnEvent { from: user_addr, amount: wallet.amount, date: now },
@@ -247,7 +252,9 @@ module ggwp_core::gpass {
 
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
-            wallet.last_burned = now;
+
+            let burn_periods_passed = spent_time / gpass_info.burn_period;
+            wallet.last_burned = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
         };
 
         if (wallet.amount != 0) {
@@ -279,7 +286,8 @@ module ggwp_core::gpass {
 
         // Try to burn amount before mint
         let now = timestamp::now_seconds();
-        if (now - wallet.last_burned >= gpass_info.burn_period) {
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
                 &mut events.burn_events,
                 BurnEvent { from: from, amount: wallet.amount, date: now },
@@ -287,7 +295,9 @@ module ggwp_core::gpass {
 
             gpass_info.total_amount = gpass_info.total_amount - wallet.amount;
             wallet.amount = 0;
-            wallet.last_burned = now;
+
+            let burn_periods_passed = spent_time / gpass_info.burn_period;
+            wallet.last_burned = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
         };
 
         if (wallet.amount != 0) {
@@ -334,6 +344,23 @@ module ggwp_core::gpass {
     public fun get_balance(wallet: address): u64 acquires Wallet {
         assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
         borrow_global<Wallet>(wallet).amount
+    }
+
+    #[view]
+    public fun get_virtual_balance(wallet: address, ggwp_core_addr: address): u64 acquires Wallet, GpassInfo {
+        assert!(exists<Wallet>(wallet), ERR_NOT_INITIALIZED);
+        assert!(exists<GpassInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
+        let wallet = borrow_global<Wallet>(wallet);
+
+        let now = timestamp::now_seconds();
+        let spent_time = now - wallet.last_burned;
+        if (spent_time >= gpass_info.burn_period) {
+            return 0
+        } else {
+            return wallet.amount
+        }
     }
 
     #[view]
@@ -564,8 +591,6 @@ module ggwp_core::gpass {
             last = user_wallet.last_burned;
         };
 
-
-
         let gpass_earned = calc_earned_gpass(
             &freezing_info.reward_table,
             user_info.freezed_amount,
@@ -584,7 +609,10 @@ module ggwp_core::gpass {
         };
 
         freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
-        user_info.last_getting_gpass = now;
+
+        let spent_time = now - user_info.last_getting_gpass;
+        let reward_period_passed = spent_time / freezing_info.reward_period;
+        user_info.last_getting_gpass = user_info.last_getting_gpass + reward_period_passed * freezing_info.reward_period;
 
         // Mint GPASS to user
         mint_to(ggwp_core_addr, user_addr, gpass_earned);
@@ -713,15 +741,16 @@ module ggwp_core::gpass {
         let user_info = borrow_global<UserInfo>(user_addr);
         let wallet = borrow_global<Wallet>(user_addr);
 
-        let spent_time = time - wallet.last_burned;
-        if (spent_time >= gpass_info.burn_period) {
-            let burn_periods_passed = spent_time / gpass_info.burn_period;
-            let last_burned = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
+        // It works exactly like withdraw_gpass calculation
+        let spent_time_from_burn = time - wallet.last_burned;
+        if (spent_time_from_burn >= gpass_info.burn_period) {
+            let burn_periods_passed = spent_time_from_burn / gpass_info.burn_period;
+            let last = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
             calc_earned_gpass(
                 &freezing_info.reward_table,
                 user_info.freezed_amount,
                 time,
-                last_burned,
+                last,
                 freezing_info.reward_period
             )
         } else {
@@ -820,7 +849,6 @@ module ggwp_core::gpass {
     }
 
     /// Calculate gpass reward for every reward_period passed.
-    /// Checks the burn periods passed also.
     fun calc_earned_gpass(
         reward_table: &vector<RewardTableRow>,
         freezed_amount: u64,
@@ -930,10 +958,6 @@ module ggwp_core::gpass {
         assert!(calc_earned_gpass(&reward_table, 10000 * 100000000, now + reward_period + reward_period, now, reward_period) == 20, 1);
         assert!(calc_earned_gpass(&reward_table, 14999 * 100000000, now + reward_period + reward_period, now, reward_period) == 20, 1);
         assert!(calc_earned_gpass(&reward_table, 15000 * 100000000, now + reward_period + reward_period, now, reward_period) == 30, 1);
-
-        // After burn period
-
-
     }
 
     #[test]
