@@ -577,18 +577,34 @@ module ggwp_core::gpass {
         let gpass_events = borrow_global_mut<GpassEvents>(ggwp_core_addr);
         let user_wallet = borrow_global_mut<Wallet>(user_addr);
 
-        // Check users earned gpass
         let now = timestamp::now_seconds();
         let last = user_info.last_getting_gpass;
-        let spent_time = now - user_wallet.last_burned;
-        if (spent_time >= gpass_info.burn_period) {
+
+        // If burn period passed
+        let spent_time_from_burn = now - user_wallet.last_burned;
+        if (spent_time_from_burn >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
                 &mut gpass_events.burn_events,
                 BurnEvent { from: user_addr, amount: user_wallet.amount, date: now },
             );
 
-            try_burn_in_period(gpass_info, user_wallet);
-            last = user_wallet.last_burned;
+            gpass_info.total_amount = gpass_info.total_amount - user_wallet.amount;
+            user_wallet.amount = 0;
+
+            let burn_periods_passed = spent_time_from_burn / gpass_info.burn_period;
+            user_wallet.last_burned = user_wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
+
+            let spent_from_last_gettting_to_new_burn = user_wallet.last_burned - user_info.last_getting_gpass;
+            let reward_periods_to_burn = spent_from_last_gettting_to_new_burn / freezing_info.reward_period;
+            last = user_info.last_getting_gpass + reward_periods_to_burn * freezing_info.reward_period;
+        };
+
+        // If burns some where else
+        let spent_time_from_getting_gpass = now - user_info.last_getting_gpass;
+        if (spent_time_from_getting_gpass >= gpass_info.burn_period) {
+            let spent_from_last_gettting_to_new_burn = user_wallet.last_burned - user_info.last_getting_gpass;
+            let reward_periods_to_burn = spent_from_last_gettting_to_new_burn / freezing_info.reward_period;
+            last = user_info.last_getting_gpass + reward_periods_to_burn * freezing_info.reward_period;
         };
 
         let gpass_earned = calc_earned_gpass(
@@ -610,8 +626,7 @@ module ggwp_core::gpass {
 
         freezing_info.daily_gpass_reward = freezing_info.daily_gpass_reward + gpass_earned;
 
-        let spent_time = now - user_info.last_getting_gpass;
-        let reward_period_passed = spent_time / freezing_info.reward_period;
+        let reward_period_passed = spent_time_from_getting_gpass / freezing_info.reward_period;
         user_info.last_getting_gpass = user_info.last_getting_gpass + reward_period_passed * freezing_info.reward_period;
 
         // Mint GPASS to user
@@ -648,22 +663,34 @@ module ggwp_core::gpass {
 
         assert!(user_info.freezed_amount != 0, ERR_ZERO_UNFREEZE_AMOUNT);
 
-        // Check users earned gpass
-        let last = user_info.last_getting_gpass;
-        if (user_wallet.last_burned > user_info.last_getting_gpass) {
-            last = user_wallet.last_burned;
-        };
-
         let now = timestamp::now_seconds();
-        let spent_time = now - user_wallet.last_burned;
-        if (spent_time >= gpass_info.burn_period) {
+        let last = user_info.last_getting_gpass;
+
+        // If burn period passed
+        let spent_time_from_burn = now - user_wallet.last_burned;
+        if (spent_time_from_burn >= gpass_info.burn_period) {
             event::emit_event<BurnEvent>(
                 &mut gpass_events.burn_events,
                 BurnEvent { from: user_addr, amount: user_wallet.amount, date: now },
             );
 
-            try_burn_in_period(gpass_info, user_wallet);
-            last = user_wallet.last_burned;
+            gpass_info.total_amount = gpass_info.total_amount - user_wallet.amount;
+            user_wallet.amount = 0;
+
+            let burn_periods_passed = spent_time_from_burn / gpass_info.burn_period;
+            user_wallet.last_burned = user_wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
+
+            let spent_from_last_gettting_to_new_burn = user_wallet.last_burned - user_info.last_getting_gpass;
+            let reward_periods_to_burn = spent_from_last_gettting_to_new_burn / freezing_info.reward_period;
+            last = user_info.last_getting_gpass + reward_periods_to_burn * freezing_info.reward_period;
+        };
+
+        // If burns some where else
+        let spent_time_from_getting_gpass = now - user_info.last_getting_gpass;
+        if (spent_time_from_getting_gpass >= gpass_info.burn_period) {
+            let spent_from_last_gettting_to_new_burn = user_wallet.last_burned - user_info.last_getting_gpass;
+            let reward_periods_to_burn = spent_from_last_gettting_to_new_burn / freezing_info.reward_period;
+            last = user_info.last_getting_gpass + reward_periods_to_burn * freezing_info.reward_period;
         };
 
         let gpass_earned = calc_earned_gpass(
@@ -739,29 +766,27 @@ module ggwp_core::gpass {
         let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
         let gpass_info = borrow_global<GpassInfo>(ggwp_core_addr);
         let user_info = borrow_global<UserInfo>(user_addr);
-        let wallet = borrow_global<Wallet>(user_addr);
+        let user_wallet = borrow_global<Wallet>(user_addr);
 
         // It works exactly like withdraw_gpass calculation
-        let spent_time_from_burn = time - wallet.last_burned;
+        let last = user_info.last_getting_gpass;
+        let spent_time_from_burn = time - user_wallet.last_burned;
         if (spent_time_from_burn >= gpass_info.burn_period) {
             let burn_periods_passed = spent_time_from_burn / gpass_info.burn_period;
-            let last = wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
-            calc_earned_gpass(
-                &freezing_info.reward_table,
-                user_info.freezed_amount,
-                time,
-                last,
-                freezing_info.reward_period
-            )
-        } else {
-            calc_earned_gpass(
-                &freezing_info.reward_table,
-                user_info.freezed_amount,
-                time,
-                user_info.last_getting_gpass,
-                freezing_info.reward_period
-            )
-        }
+            let new_last_burned = user_wallet.last_burned + burn_periods_passed * gpass_info.burn_period;
+
+            let spent_from_last_gettting_to_new_burn = new_last_burned - user_info.last_getting_gpass;
+            let reward_periods_to_burn = spent_from_last_gettting_to_new_burn / freezing_info.reward_period;
+            last = user_info.last_getting_gpass + reward_periods_to_burn * freezing_info.reward_period;
+        };
+
+        calc_earned_gpass(
+            &freezing_info.reward_table,
+            user_info.freezed_amount,
+            time,
+            last,
+            freezing_info.reward_period
+        )
     }
 
     #[view]

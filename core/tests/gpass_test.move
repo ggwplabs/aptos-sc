@@ -208,14 +208,18 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_total_freezed(core_addr) == freeze_amount1, 1);
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == false, 1);
 
-        let now = now + 4 * reward_period + (12 * 60 * 60);
+        // burn period + half reward period
+        let now = now + burn_period + reward_period / 2;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == true, 1);
 
+        // all burned!!
         gpass::burn(user1, core_addr, 5);
         assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == false, 1);
 
-        let now = now + 4 * (12 * 60 * 60) + (2 * 60);
+        // + 2 reward_periods + some_time
+        let now = now + 2 * reward_period + 2 * 60;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_burn_period_passed(core_addr, user1_addr) == false, 1);
 
@@ -361,9 +365,9 @@ module ggwp_core::gpass_test {
         let now = now + 2 * burn_period + reward_period;
         timestamp::update_global_time_for_test_secs(now);
 
-        assert!(gpass::get_earned_gpass_in_time(core_addr, user2_addr, now) == 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user2_addr, now) == 30, 1);
         gpass::withdraw_gpass(user2, core_addr);
-        assert!(gpass::get_balance(user2_addr) == 15, 1);
+        assert!(gpass::get_balance(user2_addr) == 30, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user2_addr, now) == 0, 1);
     }
 
@@ -627,7 +631,7 @@ module ggwp_core::gpass_test {
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == 0, 1);
 
         coin::ggwp::register(user1);
-        let user1_init_balance = 20000 * 100000000;
+        let user1_init_balance = 60000 * 100000000;
         coin::ggwp::mint_to(ggwp_coin, user1_init_balance, user1_addr);
         assert!(coin::balance<GGWPCoin>(user1_addr) == user1_init_balance, 1);
 
@@ -651,6 +655,7 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_balance(user1_addr) == 15, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
 
+        // 1 reward
         let now = now + reward_period;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
@@ -664,7 +669,7 @@ module ggwp_core::gpass_test {
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
 
-        // 1 reward
+        // 1 reward after burn
         let now = now + reward_period;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
@@ -673,13 +678,13 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_balance(user1_addr) == 15, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
 
-        // 2 rewards
+        // 2 rewards after burn
         let now = now + reward_period;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
 
-        // to burn
-        let now = now + (burn_period - 2* reward_period);
+        // to new burn
+        let now = now + (burn_period - 2 * reward_period);
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
 
@@ -706,13 +711,184 @@ module ggwp_core::gpass_test {
         assert!(gpass::get_balance(user1_addr) == 15 + 15, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
 
-        // + half = 3 reward
-        let now = now + half_period;
+        // + half + half = 3.5 reward
+        let now = now + half_period + half_period;
         timestamp::update_global_time_for_test_secs(now);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
 
         gpass::unfreeze(user1, core_addr);
         assert!(gpass::get_balance(user1_addr) == 15 + 15 + 15, 1);
         assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // Freeze after 3.5 rewards
+        gpass::freeze_tokens(user1, core_addr, freeze_amount1);
+        assert!(gpass::get_balance(user1_addr) == 45 + 15, 1);
+
+        // + half = burn all (4 rewards = 1 burn)
+        let now = now + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+        assert!(gpass::get_virtual_balance(user1_addr, core_addr) == 0, 1);
+
+        // + half = 1 reward since refreeze
+        let now = now + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // + reward_period = 2 reward since refreeze
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 30, 1);
+
+        // + reward_period + half = 3.5 reward since refreeze
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::unfreeze(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 45, 1);
+
+        // Freeze after 3 rewards (3.5 from refreze)
+        gpass::freeze_tokens(user1, core_addr, freeze_amount1);
+        assert!(gpass::get_balance(user1_addr) == 45 + 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+    }
+
+    #[test(core_signer = @ggwp_core, ggwp_coin = @coin, accumulative_fund = @0x11112222, user1 = @0x11)]
+    public entry fun get_earned_gpass_in_time_with_unfreeze_test2(core_signer: &signer, ggwp_coin: &signer, accumulative_fund: &signer, user1: &signer) {
+        genesis::setup();
+        timestamp::update_global_time_for_test_secs(1669292558);
+
+        let ac_fund_addr = signer::address_of(accumulative_fund);
+        let core_addr = signer::address_of(core_signer);
+        let user1_addr = signer::address_of(user1);
+        create_account_for_test(ac_fund_addr);
+        create_account_for_test(core_addr);
+        create_account_for_test(user1_addr);
+
+        coin::ggwp::set_up_test(ggwp_coin);
+
+        coin::ggwp::register(accumulative_fund);
+        assert!(coin::balance<GGWPCoin>(ac_fund_addr) == 0, 1);
+
+        coin::ggwp::register(user1);
+        let user1_init_balance = 60000 * 100000000;
+        coin::ggwp::mint_to(ggwp_coin, user1_init_balance, user1_addr);
+        assert!(coin::balance<GGWPCoin>(user1_addr) == user1_init_balance, 1);
+
+        let now = timestamp::now_seconds();
+        let burn_period = 24 * 60 * 60;
+        let reward_period = 6 * 60 * 60;
+        let half_period = 3 * 60 * 60;
+        let unfreeze_lock_period = 2 * 24 * 60 * 60;
+        gpass::initialize(core_signer, ac_fund_addr, burn_period, reward_period, 8, 15, unfreeze_lock_period);
+        gpass::add_reward_table_row(core_signer, 5000 * 100000000, 5);
+        gpass::add_reward_table_row(core_signer, 10000 * 100000000, 10);
+        gpass::add_reward_table_row(core_signer, 15000 * 100000000, 15);
+
+        gpass::create_wallet(user1);
+        assert!(gpass::get_balance(user1_addr) == 0, 1);
+        assert!(gpass::get_last_burned(user1_addr) == now, 2);
+
+        // User1 freeze 15000 GGWP
+        let freeze_amount1 = 15000 * 100000000;
+        gpass::freeze_tokens(user1, core_addr, freeze_amount1);
+        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // 1 reward
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 30, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // after 1 burn_period = 0
+        let now = now + (burn_period - reward_period);
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // 1 reward after burn
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // 2 rewards after burn
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        // to new burn
+        let now = now + (burn_period - 2 * reward_period);
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // to burn again
+        let now = now + burn_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // 1 reward
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // 2 reward + half
+        let now = now + reward_period + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::withdraw_gpass(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 15 + 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // + half + half = 3.5 reward
+        let now = now + half_period + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        gpass::unfreeze(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 15 + 15 + 15, 1);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+
+        // Freeze after 3.5 rewards
+        gpass::freeze_tokens(user1, core_addr, freeze_amount1);
+        assert!(gpass::get_balance(user1_addr) == 45 + 15, 1);
+
+        // + half = burn all (4 rewards = 1 burn)
+        let now = now + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 0, 1);
+        assert!(gpass::get_virtual_balance(user1_addr, core_addr) == 0, 1);
+
+        // + half = 1 reward since refreeze
+        let now = now + half_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 15, 1);
+
+        // + reward_period = 2 reward since refreeze
+        let now = now + reward_period;
+        timestamp::update_global_time_for_test_secs(now);
+        assert!(gpass::get_earned_gpass_in_time(core_addr, user1_addr, now) == 30, 1);
+
+        gpass::unfreeze(user1, core_addr);
+        assert!(gpass::get_balance(user1_addr) == 30, 1);
     }
 }
