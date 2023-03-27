@@ -573,6 +573,13 @@ module gateway::gateway {
     // Getters
 
     #[view]
+    public fun get_accumulative_fund_addr(gateway_addr: address): address acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        gateway_info.accumulative_fund
+    }
+
+    #[view]
     public fun play_to_earn_fund_balance(gateway_addr: address): u64 acquires GatewayInfo {
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         let gateway_info = borrow_global<GatewayInfo>(gateway_addr);

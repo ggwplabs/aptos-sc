@@ -343,6 +343,22 @@ module gateway::gateway_test {
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
+    public entry fun accumulative_fund_update_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
+        let (gateway_addr, _ggwp_core_addr, ac_fund_addr, _contributor_addr, _player_addr)
+            = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
+
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
+        let royalty = 8;
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
+        assert!(gateway::get_accumulative_fund_addr(gateway_addr) == ac_fund_addr, 1);
+
+        let new_ac_fund_addr = @44332211;
+        gateway::update_accumulative_fund(gateway, new_ac_fund_addr);
+        assert!(gateway::get_accumulative_fund_addr(gateway_addr) == new_ac_fund_addr, 1);
+    }
+
+    #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     #[expected_failure(abort_code = ERR_PROJECT_NOT_EXISTS, location = gateway::gateway)]
     public entry fun unexists_project_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
         let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, _player_addr)
