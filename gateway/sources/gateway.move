@@ -208,6 +208,17 @@ module gateway::gateway {
         gateway_info.royalty = royalty;
     }
 
+    public entry fun update_accumulative_fund(gateway: &signer,
+        accumulative_fund: address,
+    ) acquires GatewayInfo {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+        gateway_info.accumulative_fund = accumulative_fund;
+    }
+
     public entry fun play_to_earn_fund_deposit(funder: &signer, gateway_addr: address, amount: u64) acquires GatewayInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);

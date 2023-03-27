@@ -5,7 +5,6 @@ AIRDROP_DEVNET="OFF"
 PUBLISH="OFF"
 
 FAUCET_INIT="OFF"
-STAKING_INIT="OFF"
 CORE_INIT="OFF"
 GATEWAY_INIT="OFF"
 
@@ -22,7 +21,6 @@ then
     yes "" | aptos init --network testnet --profile core --assume-yes
     yes "" | aptos init --network testnet --profile faucet --assume-yes
     yes "" | aptos init --network testnet --profile coin --assume-yes
-    yes "" | aptos init --network testnet --profile staking --assume-yes
     yes "" | aptos init --network testnet --profile distribution --assume-yes
     yes "" | aptos init --network testnet --profile company_fund --assume-yes
     yes "" | aptos init --network testnet --profile team_fund --assume-yes
@@ -43,9 +41,6 @@ GGWP_COIN_STRUCT="$GGWP::ggwp::GGWPCoin"
 GGWP_REGISTER="$GGWP::ggwp::register"
 GGWP_MINT_TO="$GGWP::ggwp::mint_to"
 
-STAKING="0x$profiles_staking_account"
-STAKING_INITIALIZE="$STAKING::staking::initialize"
-
 GGWP_CORE="0x$profiles_core_account"
 GGWP_CORE_INITIALIZE="$GGWP_CORE::gpass::initialize"
 GGWP_CORE_ADD_REWARD_TABLE_ROW="$GGWP_CORE::gpass::add_reward_table_row"
@@ -59,7 +54,6 @@ GATEWAY="0x$profiles_gateway_account"
 GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
 
 PLAY_TO_EARN_FUND="0x$profiles_gateway_account"
-STAKING_FUND="0x$profiles_staking_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"
 
@@ -70,7 +64,6 @@ update_ggwp_core "$GGWP_CORE" "core/Move.toml"
 update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
-update_staking "$STAKING" "staking/Move.toml"
 update_gateway "$GATEWAY" "gateway/Move.toml"
 
 # Place for another script actions
@@ -116,7 +109,6 @@ then
     do
         aptos account fund-with-faucet --account coin --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account faucet --faucet-url https://faucet.devnet.aptoslabs.com
-        aptos account fund-with-faucet --account staking --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account core --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account distribution --faucet-url https://faucet.devnet.aptoslabs.com
         aptos account fund-with-faucet --account company_fund --faucet-url https://faucet.devnet.aptoslabs.com
@@ -134,9 +126,6 @@ echo "coin: $coin_initial_balance"
 
 faucet_initial_balance=$(get_balance faucet)
 echo "faucet: $faucet_initial_balance"
-
-staking_initial_balance=$(get_balance staking)
-echo "staking: $staking_initial_balance"
 
 core_initial_balance=$(get_balance core)
 echo "core: $core_initial_balance"
@@ -156,23 +145,20 @@ echo "------------------------------"
 
 if [[ $PUBLISH == "ON" ]]
 then
-    echo "Deploy ggwp_coin.."
-    aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
+    # echo "Deploy ggwp_coin.."
+    # aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
 
-    echo "Deploy faucet.."
-    aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
+    # echo "Deploy faucet.."
+    # aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
 
-    echo "Deploy staking.."
-    aptos move publish --profile staking --package-dir staking --bytecode-version 6 --assume-yes
+    # echo "Deploy ggwp_core.."
+    # aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
 
-    echo "Deploy ggwp_core.."
-    aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
+    # echo "Deploy accumulative fund distribution.."
+    # aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
 
-    echo "Deploy accumulative fund distribution.."
-    aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
-
-    echo "Deploy gateway sc.."
-    aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
+    # echo "Deploy gateway sc.."
+    # aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
 echo "------------------------------"
@@ -185,10 +171,6 @@ echo "coin: $coin_cost"
 faucet_balance=$(get_balance faucet)
 let faucet_cost=$faucet_initial_balance-$faucet_balance
 echo "faucet: $faucet_cost"
-
-staking_balance=$(get_balance staking)
-let staking_cost=$staking_initial_balance-$staking_balance
-echo "staking: $staking_cost"
 
 core_balance=$(get_balance core)
 let core_cost=$core_initial_balance-$core_balance
@@ -218,23 +200,6 @@ then
     echo "Initialize faucet"
     ARGS="u64:100000000000000 u64:500000000000 u64:300"
     aptos move run --function-id $FAUCET_CREATE --type-args $GGWP_COIN_STRUCT --args $ARGS --profile faucet --assume-yes
-fi
-
-if [[ $STAKING_INIT == "ON" ]]
-then
-    # Initialize staking
-    echo "Initialize staking"
-    accumulative_fund=$ACCUMULATIVE_FUND
-    let epoch_period=45*24*60*60
-    min_stake_amount=300000000000
-    let hold_period=30*24*60*60
-    hold_royalty=15
-    royalty=8
-    apr_start=45
-    apr_step=1
-    apr_end=5
-    ARGS="address:$accumulative_fund u64:$epoch_period u64:$min_stake_amount u64:$hold_period u8:$hold_royalty u8:$royalty u8:$apr_start u8:$apr_step u8:$apr_end"
-    aptos move run --function-id $STAKING_INITIALIZE --args $ARGS --profile staking --assume-yes
 fi
 
 if [[ $CORE_INIT == "ON" ]]
@@ -285,13 +250,11 @@ then
     echo "Initialize distribution"
     play_to_earn_fund="$PLAY_TO_EARN_FUND"
     play_to_earn_fund_share=45
-    staking_fund="$STAKING_FUND"
-    staking_fund_share=40
     company_fund="$COMPANY_FUND"
     company_fund_share=5
     team_fund="$TEAM_FUND"
     team_fund_share=10
-    ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$staking_fund u8:$staking_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
+    ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
     aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
 
@@ -316,10 +279,6 @@ echo "coin: $coin_cost"
 faucet_balance=$(get_balance faucet)
 let faucet_cost=$faucet_initial_balance-$faucet_balance
 echo "faucet: $faucet_cost"
-
-staking_balance=$(get_balance staking)
-let staking_cost=$staking_initial_balance-$staking_balance
-echo "staking: $staking_cost"
 
 core_balance=$(get_balance core)
 let core_cost=$core_initial_balance-$core_balance
