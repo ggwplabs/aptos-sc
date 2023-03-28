@@ -46,7 +46,6 @@ rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = \"../ggwp_coin\" }
-staking = { local = \"../staking\" }
 gateway = { local = \"../gateway\" }
 [addresses]
 accumulative_fund = \"$1\""
@@ -92,20 +91,5 @@ rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [addresses]
 coin = \"$1\""
-    echo "$file_content" > $2
-}
-
-function update_staking {
-    local file_content="[package]
-name = 'staking'
-version = '1.0.0'
-[dependencies.AptosFramework]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'testnet'
-subdir = 'aptos-move/framework/aptos-framework'
-[dependencies]
-ggwpcoin = { local = \"../ggwp_coin\" }
-[addresses]
-staking = \"$1\""
     echo "$file_content" > $2
 }

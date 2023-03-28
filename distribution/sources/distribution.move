@@ -7,7 +7,6 @@ module accumulative_fund::distribution {
     use aptos_framework::coin;
 
     use coin::ggwp::GGWPCoin;
-    use staking::staking;
     use gateway::gateway;
 
     const ERR_NOT_AUTHORIZED: u64 = 0x1000;
@@ -18,10 +17,8 @@ module accumulative_fund::distribution {
 
     struct DistributionInfo has key, store {
         last_distribution: u64,
-        play_to_earn_fund: address,
-        play_to_earn_fund_share: u8,
-        staking_fund: address,
-        staking_fund_share: u8,
+        games_reward_fund: address,
+        games_reward_fund_share: u8,
         company_fund: address,
         company_fund_share: u8,
         team_fund: address,
@@ -37,18 +34,15 @@ module accumulative_fund::distribution {
     struct DistributionEvent has drop, store {
         date: u64,
         accumulative_fund_amount: u64,
-        play_to_earn_fund_deposit: u64,
-        staking_fund_deposit: u64,
+        games_reward_fund_deposit: u64,
         company_fund_deposit: u64,
         team_fund_deposit: u64,
     }
 
     /// Initialize distribution contract with information abount funds.
     public entry fun initialize(accumulative_fund: &signer,
-        play_to_earn_fund: address, // gateway_addr
-        play_to_earn_fund_share: u8,
-        staking_fund: address,
-        staking_fund_share: u8,
+        games_reward_fund: address, // gateway_addr
+        games_reward_fund_share: u8,
         company_fund: address,
         company_fund_share: u8,
         team_fund: address,
@@ -61,19 +55,16 @@ module accumulative_fund::distribution {
             assert!(false, ERR_ALREADY_INITIALIZED);
         };
 
-        assert!(play_to_earn_fund_share <= 100, ERR_INVALID_SHARE);
-        assert!(staking_fund_share <= 100, ERR_INVALID_SHARE);
+        assert!(games_reward_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(company_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(team_fund_share <= 100, ERR_INVALID_SHARE);
-        assert!((play_to_earn_fund_share + staking_fund_share + company_fund_share + team_fund_share) == 100, ERR_INVALID_SHARE);
+        assert!((games_reward_fund_share + company_fund_share + team_fund_share) == 100, ERR_INVALID_SHARE);
 
         if (!exists<DistributionInfo>(accumulative_fund_addr)) {
             let distribution_info = DistributionInfo {
                 last_distribution: 0,
-                play_to_earn_fund: play_to_earn_fund,
-                play_to_earn_fund_share: play_to_earn_fund_share,
-                staking_fund: staking_fund,
-                staking_fund_share: staking_fund_share,
+                games_reward_fund: games_reward_fund,
+                games_reward_fund_share: games_reward_fund_share,
                 company_fund: company_fund,
                 company_fund_share: company_fund_share,
                 team_fund: team_fund,
@@ -91,31 +82,27 @@ module accumulative_fund::distribution {
 
     /// Update shares.
     public entry fun update_shares(accumulative_fund: &signer,
-        play_to_earn_fund_share: u8,
-        staking_fund_share: u8,
+        games_reward_fund_share: u8,
         company_fund_share: u8,
         team_fund_share: u8,
     ) acquires DistributionInfo {
         let accumulative_fund_addr = signer::address_of(accumulative_fund);
         assert!(accumulative_fund_addr == @accumulative_fund, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
-        assert!(play_to_earn_fund_share <= 100, ERR_INVALID_SHARE);
-        assert!(staking_fund_share <= 100, ERR_INVALID_SHARE);
+        assert!(games_reward_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(company_fund_share <= 100, ERR_INVALID_SHARE);
         assert!(team_fund_share <= 100, ERR_INVALID_SHARE);
-        assert!((play_to_earn_fund_share + staking_fund_share + company_fund_share + team_fund_share) == 100, ERR_INVALID_SHARE);
+        assert!((games_reward_fund_share + company_fund_share + team_fund_share) == 100, ERR_INVALID_SHARE);
 
         let distribution_info = borrow_global_mut<DistributionInfo>(accumulative_fund_addr);
-        distribution_info.play_to_earn_fund_share = play_to_earn_fund_share;
-        distribution_info.staking_fund_share = staking_fund_share;
+        distribution_info.games_reward_fund_share = games_reward_fund_share;
         distribution_info.company_fund_share = company_fund_share;
         distribution_info.team_fund_share = team_fund_share;
     }
 
     /// Update funds addresses
     public entry fun update_funds(accumulative_fund: &signer,
-        play_to_earn_fund: address,
-        staking_fund: address,
+        games_reward_fund: address,
         company_fund: address,
         team_fund: address,
     ) acquires DistributionInfo {
@@ -124,8 +111,7 @@ module accumulative_fund::distribution {
         assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
 
         let distribution_info = borrow_global_mut<DistributionInfo>(accumulative_fund_addr);
-        distribution_info.play_to_earn_fund = play_to_earn_fund;
-        distribution_info.staking_fund = staking_fund;
+        distribution_info.games_reward_fund = games_reward_fund;
         distribution_info.company_fund = company_fund;
         distribution_info.team_fund = team_fund;
     }
@@ -145,15 +131,10 @@ module accumulative_fund::distribution {
 
         let ac_amount_before = amount;
 
-        // Transfer GGWP to play to earn fund (gateway smart contract)
-        let play_to_earn_fund_amount =
-            calc_share_amount(amount, distribution_info.play_to_earn_fund_share);
-        gateway::play_to_earn_fund_deposit(accumulative_fund, distribution_info.play_to_earn_fund, play_to_earn_fund_amount);
-
-        // Transfer GGWP to staking fund
-        let staking_fund_amount =
-            calc_share_amount(amount, distribution_info.staking_fund_share);
-        staking::deposit_staking_fund(accumulative_fund, distribution_info.staking_fund, staking_fund_amount);
+        // Transfer GGWP to games reward fund (gateway smart contract)
+        let games_reward_fund_amount =
+            calc_share_amount(amount, distribution_info.games_reward_fund_share);
+        gateway::play_to_earn_fund_deposit(accumulative_fund, distribution_info.games_reward_fund, games_reward_fund_amount);
 
         // Transfer GGWP to company fund
         let company_fund_amount =
@@ -161,7 +142,7 @@ module accumulative_fund::distribution {
         coin::transfer<GGWPCoin>(accumulative_fund, distribution_info.company_fund, company_fund_amount);
 
         // Transfer GGWP to team fund
-        let team_fund_amount = amount - (play_to_earn_fund_amount + staking_fund_amount + company_fund_amount);
+        let team_fund_amount = amount - (games_reward_fund_amount + company_fund_amount);
         coin::transfer<GGWPCoin>(accumulative_fund, distribution_info.team_fund, team_fund_amount);
 
         let now = timestamp::now_seconds();
@@ -172,8 +153,7 @@ module accumulative_fund::distribution {
             DistributionEvent {
                 date: now,
                 accumulative_fund_amount: ac_amount_before,
-                play_to_earn_fund_deposit: play_to_earn_fund_amount,
-                staking_fund_deposit: staking_fund_amount,
+                games_reward_fund_deposit: games_reward_fund_amount,
                 company_fund_deposit: company_fund_amount,
                 team_fund_deposit: team_fund_amount,
             },
@@ -182,35 +162,45 @@ module accumulative_fund::distribution {
 
     // Getters.
 
-    public fun get_play_to_earn_fund_share(accumulative_fund_addr: address): u8 acquires DistributionInfo {
-        borrow_global<DistributionInfo>(accumulative_fund_addr).play_to_earn_fund_share
+    #[view]
+    public fun get_last_distribution(accumulative_fund_addr: address): u64 acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
+        borrow_global<DistributionInfo>(accumulative_fund_addr).last_distribution
     }
 
-    public fun get_play_to_earn_fund(accumulative_fund_addr: address): address acquires DistributionInfo {
-        borrow_global<DistributionInfo>(accumulative_fund_addr).play_to_earn_fund
+    #[view]
+    public fun get_games_reward_fund_share(accumulative_fund_addr: address): u8 acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
+        borrow_global<DistributionInfo>(accumulative_fund_addr).games_reward_fund_share
     }
 
-    public fun get_staking_fund_share(accumulative_fund_addr: address): u8 acquires DistributionInfo {
-        borrow_global<DistributionInfo>(accumulative_fund_addr).staking_fund_share
+    #[view]
+    public fun get_games_reward_fund(accumulative_fund_addr: address): address acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
+        borrow_global<DistributionInfo>(accumulative_fund_addr).games_reward_fund
     }
 
-    public fun get_staking_fund(accumulative_fund_addr: address): address acquires DistributionInfo {
-        borrow_global<DistributionInfo>(accumulative_fund_addr).staking_fund
-    }
-
+    #[view]
     public fun get_company_fund_share(accumulative_fund_addr: address): u8 acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
         borrow_global<DistributionInfo>(accumulative_fund_addr).company_fund_share
     }
 
+    #[view]
     public fun get_company_fund(accumulative_fund_addr: address): address acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
         borrow_global<DistributionInfo>(accumulative_fund_addr).company_fund
     }
 
+    #[view]
     public fun get_team_fund_share(accumulative_fund_addr: address): u8 acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
         borrow_global<DistributionInfo>(accumulative_fund_addr).team_fund_share
     }
 
+    #[view]
     public fun get_team_fund(accumulative_fund_addr: address): address acquires DistributionInfo {
+        assert!(exists<DistributionInfo>(accumulative_fund_addr), ERR_NOT_INITIALIZED);
         borrow_global<DistributionInfo>(accumulative_fund_addr).team_fund
     }
 
