@@ -7,7 +7,6 @@ rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = "../ggwp_coin" }
-staking = { local = "../staking" }
 gateway = { local = "../gateway" }
 [addresses]
-accumulative_fund = "0x640d500e88b961bb10d6bd95dc05d6a76c8789a73bc160edd441633bb2435fd8"
+accumulative_fund = "0xb4eafa732d3db6f143e03ccae8ce70f4f33674e96e7af5b9c5d75628cfdbbf96"
