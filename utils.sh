@@ -27,7 +27,7 @@ name = 'ggwp_core'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = \"../ggwp_coin\" }
@@ -42,11 +42,10 @@ name = 'accumulative_fund'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = \"../ggwp_coin\" }
-staking = { local = \"../staking\" }
 gateway = { local = \"../gateway\" }
 [addresses]
 accumulative_fund = \"$1\""
@@ -59,7 +58,7 @@ name = 'faucet'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [addresses]
 faucet = \"$1\""
@@ -72,7 +71,7 @@ name = 'gateway'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = \"../ggwp_coin\" }
@@ -88,24 +87,9 @@ name = 'ggwpcoin'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [addresses]
 coin = \"$1\""
-    echo "$file_content" > $2
-}
-
-function update_staking {
-    local file_content="[package]
-name = 'staking'
-version = '1.0.0'
-[dependencies.AptosFramework]
-git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
-subdir = 'aptos-move/framework/aptos-framework'
-[dependencies]
-ggwpcoin = { local = \"../ggwp_coin\" }
-[addresses]
-staking = \"$1\""
     echo "$file_content" > $2
 }

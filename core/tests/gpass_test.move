@@ -79,6 +79,22 @@ module ggwp_core::gpass_test {
         assert!(vector::contains(&gpass::get_burners_list(core_addr), &burner3) == true, 1);
     }
 
+    #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222)]
+    public entry fun update_accumulative_fund(core_signer: &signer, accumulative_fund: &signer) {
+        genesis::setup();
+
+        let ac_fund_addr = signer::address_of(accumulative_fund);
+        let core_addr = signer::address_of(core_signer);
+        create_account_for_test(core_addr);
+
+        gpass::initialize(core_signer, ac_fund_addr, 5000, 7000, 8, 15, 300);
+        assert!(gpass::get_accumulative_fund_addr(core_addr) == ac_fund_addr, 1);
+
+        let new_ac_fund_addr = @44332211;
+        gpass::update_accumulative_fund(core_signer, new_ac_fund_addr);
+        assert!(gpass::get_accumulative_fund_addr(core_addr) == new_ac_fund_addr, 1);
+    }
+
     #[test(core_signer = @ggwp_core, accumulative_fund = @0x11112222, user = @0x11)]
     public entry fun mint_to_with_burns(core_signer: &signer, accumulative_fund: &signer, user: &signer) {
         genesis::setup();

@@ -462,6 +462,19 @@ module ggwp_core::gpass {
         vector::push_back(&mut freezing_info.reward_table, row);
     }
 
+    /// Update accumulative fund address.
+    public entry fun update_accumulative_fund(
+        ggwp_core: &signer,
+        accumulative_fund: address,
+    ) acquires FreezingInfo {
+        let ggwp_core_addr = signer::address_of(ggwp_core);
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+
+        let freezing_info = borrow_global_mut<FreezingInfo>(ggwp_core_addr);
+        freezing_info.accumulative_fund = accumulative_fund;
+    }
+
     /// Update freezing parameters.
     public entry fun update_freezing_params(
         ggwp_core: &signer,
@@ -747,6 +760,13 @@ module ggwp_core::gpass {
     }
 
     // Freezing Getters.
+
+    #[view]
+    public fun get_accumulative_fund_addr(ggwp_core_addr: address): address acquires FreezingInfo {
+        assert!(exists<FreezingInfo>(ggwp_core_addr), ERR_NOT_INITIALIZED);
+        let freezing_info = borrow_global<FreezingInfo>(ggwp_core_addr);
+        freezing_info.accumulative_fund
+    }
 
     #[view]
     public fun get_treasury_balance(ggwp_core_addr: address): u64 acquires FreezingInfo {

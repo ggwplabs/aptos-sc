@@ -3,7 +3,7 @@ name = 'staking'
 version = '1.0.0'
 [dependencies.AptosFramework]
 git = 'https://github.com/aptos-labs/aptos-core.git'
-rev = 'main'
+rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
 [dependencies]
 ggwpcoin = { local = "../ggwp_coin" }
