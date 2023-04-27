@@ -36,7 +36,7 @@ GGWP_COIN_STRUCT="$GGWP::ggwp::GGWPCoin"
 ACCUMULATIVE_FUND="0x$profiles_distribution_account"
 DISTRIBUTION_DISTRIBUTE="$ACCUMULATIVE_FUND::distribution::distribute"
 
-PLAY_TO_EARN_FUND="0x$profiles_games_account"
+GAMES_REWARD_FUND="0x$profiles_games_account"
 STAKING_FUND="0x$profiles_staking_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"

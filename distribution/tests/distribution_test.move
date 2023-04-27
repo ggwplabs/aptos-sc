@@ -119,7 +119,7 @@ module accumulative_fund::distribution_test {
         coin::ggwp::register(ac_fund_signer);
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == 0, 1);
         coin::ggwp::register(games_reward_fund);
-        assert!(gateway::play_to_earn_fund_balance(games_reward_fund_addr) == 0, 1);
+        assert!(gateway::games_reward_fund_balance(games_reward_fund_addr) == 0, 1);
         coin::ggwp::register(company_fund);
         assert!(coin::balance<GGWPCoin>(company_fund_addr) == 0, 1);
         coin::ggwp::register(team_fund);
@@ -131,7 +131,7 @@ module accumulative_fund::distribution_test {
         distribution::distribute(ac_fund_signer);
 
         assert!(coin::balance<GGWPCoin>(ac_fund_addr) == 0, 1);
-        assert!(gateway::play_to_earn_fund_balance(games_reward_fund_addr) == 8000000000, 1);
+        assert!(gateway::games_reward_fund_balance(games_reward_fund_addr) == 8000000000, 1);
         assert!(coin::balance<GGWPCoin>(company_fund_addr) == 900000000, 1);
         assert!(coin::balance<GGWPCoin>(team_fund_addr) == 1100000000, 1);
     }

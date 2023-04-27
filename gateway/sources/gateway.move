@@ -31,7 +31,7 @@ module gateway::gateway {
     const ERR_INVALID_GAME_SESSION_STATUS: u64 = 0x1015;
     const ERR_MISSING_GAME_SESSION: u64 = 0x1016;
     const ERR_GAME_SESSION_ALREADY_FINALIZED: u64 = 0x1017;
-    const ERR_EMPTY_PLAY_TO_EARN_FUND: u64 = 0x1018;
+    const ERR_EMPTY_GAMES_REWARD_FUND: u64 = 0x1018;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
@@ -43,7 +43,7 @@ module gateway::gateway {
 
     struct GatewayInfo has key, store {
         accumulative_fund: address,
-        play_to_earn_fund: Coin<GGWPCoin>,
+        games_reward_fund: Coin<GGWPCoin>,
         royalty: u8,
         reward_coefficient: u64,
         gpass_daily_reward_coefficient: u64,
@@ -164,7 +164,7 @@ module gateway::gateway {
         if (!exists<GatewayInfo>(gateway_addr)) {
             let gateway_info = GatewayInfo {
                 accumulative_fund: accumulative_fund_addr,
-                play_to_earn_fund: coin::zero<GGWPCoin>(),
+                games_reward_fund: coin::zero<GGWPCoin>(),
                 royalty: royalty,
                 reward_coefficient: reward_coefficient,
                 gpass_daily_reward_coefficient: gpass_daily_reward_coefficient,
@@ -219,7 +219,7 @@ module gateway::gateway {
         gateway_info.accumulative_fund = accumulative_fund;
     }
 
-    public entry fun play_to_earn_fund_deposit(funder: &signer, gateway_addr: address, amount: u64) acquires GatewayInfo, Events {
+    public entry fun games_reward_fund_deposit(funder: &signer, gateway_addr: address, amount: u64) acquires GatewayInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -227,7 +227,7 @@ module gateway::gateway {
 
         let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
         let deposit_coins = coin::withdraw<GGWPCoin>(funder, amount);
-        coin::merge(&mut gateway_info.play_to_earn_fund, deposit_coins);
+        coin::merge(&mut gateway_info.games_reward_fund, deposit_coins);
 
         let events = borrow_global_mut<Events>(gateway_addr);
         let now = timestamp::now_seconds();
@@ -530,11 +530,11 @@ module gateway::gateway {
         // If player win pay rewards
         if (status == 1) {
             let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
-            let play_to_earn_fund_amount = coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund);
-            assert!(play_to_earn_fund_amount != 0, ERR_EMPTY_PLAY_TO_EARN_FUND);
+            let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
+            assert!(games_reward_fund_amount != 0, ERR_EMPTY_GAMES_REWARD_FUND);
 
             reward_amount = calc_reward_amount(
-                play_to_earn_fund_amount,
+                games_reward_fund_amount,
                 gpass::get_total_users_freezed(ggwp_core_addr),
                 gateway_info.reward_coefficient,
                 gpass::get_daily_gpass_reward(ggwp_core_addr),
@@ -542,11 +542,11 @@ module gateway::gateway {
             );
 
             royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
-            // Transfer reward_amount - royalty_amount to player from play_to_earn_fund
-            let reward_coins = coin::extract(&mut gateway_info.play_to_earn_fund, reward_amount - royalty_amount);
+            // Transfer reward_amount - royalty_amount to player from games_reward_fund
+            let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, reward_amount - royalty_amount);
             coin::deposit(player_addr, reward_coins);
-            // Transfer royalty_amount to accumulative fund from play_to_earn_fund
-            let royalty_coins = coin::extract(&mut gateway_info.play_to_earn_fund, royalty_amount);
+            // Transfer royalty_amount to accumulative fund from games_reward_fund
+            let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
             coin::deposit(gateway_info.accumulative_fund, royalty_coins);
         };
 
@@ -580,10 +580,10 @@ module gateway::gateway {
     }
 
     #[view]
-    public fun play_to_earn_fund_balance(gateway_addr: address): u64 acquires GatewayInfo {
+    public fun games_reward_fund_balance(gateway_addr: address): u64 acquires GatewayInfo {
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
-        coin::value<GGWPCoin>(&gateway_info.play_to_earn_fund)
+        coin::value<GGWPCoin>(&gateway_info.games_reward_fund)
     }
 
     #[view]
@@ -692,7 +692,7 @@ module gateway::gateway {
 
     /// Calculate reward amount for user.
     public fun calc_reward_amount(
-        play_to_earn_fund_amount: u64,
+        games_reward_fund_amount: u64,
         freezed_users: u64,
         reward_coefficient: u64,
         gpass_daily_reward: u64,
@@ -700,7 +700,7 @@ module gateway::gateway {
     ): u64 {
         let reward_amount = 0;
         if (freezed_users != 0) {
-            reward_amount = play_to_earn_fund_amount / (freezed_users * reward_coefficient);
+            reward_amount = games_reward_fund_amount / (freezed_users * reward_coefficient);
         };
 
         let gpass_daily_reward_amount = gpass_daily_reward * DECIMALS;

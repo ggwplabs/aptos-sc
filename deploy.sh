@@ -54,7 +54,7 @@ DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
 GATEWAY="0x$profiles_gateway_account"
 GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
 
-PLAY_TO_EARN_FUND="0x$profiles_gateway_account"
+GAMES_REWARD_FUND="0x$profiles_gateway_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"
 
@@ -96,18 +96,18 @@ then
     # Sctiprt
     echo "Script"
     # DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
-    # play_to_earn_fund="$PLAY_TO_EARN_FUND"
+    # games_reward_fund="$GAMES_REWARD_FUND"
     # staking_fund="$STAKING_FUND"
     # company_fund="$COMPANY_FUND"
     # team_fund="$TEAM_FUND"
-    # ARGS="address:$play_to_earn_fund address:$staking_fund address:$company_fund address:$team_fund"
+    # ARGS="address:$games_reward_fund address:$staking_fund address:$company_fund address:$team_fund"
     # aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
 
     # aptos move run --function-id $GGWP_REGISTER --profile fighting_contributor --assume-yes
     # ARGS="u64:2728811381400 address:$FIGHTING_CONTRIBUTOR"
     # aptos move run --function-id $GGWP_MINT_TO --args $ARGS --profile coin --assume-yes
 
-    # GATEWAY_DEPOSIT="$GATEWAY::gateway::play_to_earn_fund_deposit"
+    # GATEWAY_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
     # ARGS="address:$GATEWAY u64:2728811381400"
     # aptos move run --function-id $GATEWAY_DEPOSIT --args $ARGS --profile fighting_contributor --assume-yes
 
@@ -248,13 +248,13 @@ fi
 if [[ $DISTRIBUTION_INIT == "ON" ]]
 then
     echo "Initialize distribution"
-    play_to_earn_fund="$PLAY_TO_EARN_FUND"
-    play_to_earn_fund_share=45
+    games_reward_fund="$GAMES_REWARD_FUND"
+    games_reward_fund_share=45
     company_fund="$COMPANY_FUND"
     company_fund_share=5
     team_fund="$TEAM_FUND"
     team_fund_share=10
-    ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
+    ARGS="address:$games_reward_fund u8:$games_reward_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
     aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
 
