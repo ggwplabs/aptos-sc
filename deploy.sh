@@ -1,5 +1,6 @@
 REGENERATE_KEYS="OFF"
 SCRIPT="OFF"
+TESTING_SCRIPT="OFF"
 
 AIRDROP_DEVNET="OFF"
 PUBLISH="OFF"
@@ -59,12 +60,35 @@ TEAM_FUND="0x$profiles_team_fund_account"
 
 FIGHTING_CONTRIBUTOR="0x$profiles_fighting_contributor_account"
 
+TESTING="0x$profiles_testing_account"
+
 # Update Move.toml files
 update_ggwp_core "$GGWP_CORE" "core/Move.toml"
 update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_gateway "$GATEWAY" "gateway/Move.toml"
+
+if [[ $TESTING_SCRIPT == "ON" ]]
+then
+    echo "testing contract call"
+    # TESTING_ADD="$TESTING::testing::add"
+    # ARGS="u64:1 u64:100"
+    # aptos move run --function-id $TESTING_ADD --args $ARGS --profile testing --assume-yes
+
+    # TESTING_ADD_HISTORY="$TESTING::testing::add_history"
+    # ARGS="u64:1 u64:225"
+    # aptos move run --function-id $TESTING_ADD_HISTORY --args $ARGS --profile testing --assume-yes
+
+    # TESTING_UPDATE="$TESTING::testing::update"
+    # ARGS="u64:99 u64:555"
+    # aptos move run --function-id $TESTING_UPDATE --args $ARGS --profile testing --assume-yes
+
+    # TESTING_PROCESS_HISTORY="$TESTING::testing::process_history"
+    #     rm: u64, ins: u64, upd: u64, val: u64
+    # ARGS="u64:3 u64:350 u64:50 u64:555"
+    # aptos move run --function-id $TESTING_PROCESS_HISTORY --args $ARGS --profile testing --assume-yes
+fi
 
 # Place for another script actions
 if [[ $SCRIPT == "ON" ]]
@@ -87,12 +111,12 @@ then
     # ARGS="address:$GATEWAY u64:2728811381400"
     # aptos move run --function-id $GATEWAY_DEPOSIT --args $ARGS --profile fighting_contributor --assume-yes
 
-    GATEWAY_SIGN_UP="$GATEWAY::gateway::sign_up"
-    ARGS="address:$GATEWAY string:rough_rules u64:1"
-    aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
+    # GATEWAY_SIGN_UP="$GATEWAY::gateway::sign_up"
+    # ARGS="address:$GATEWAY string:rough_rules u64:1"
+    # aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
 
     # GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
-    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
+    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:$PROJECT_ID"
     # aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
 
     # GATEWAY_FINALIZE_GAME="$GATEWAY::gateway::finalize_game"
@@ -161,29 +185,29 @@ then
     # aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
-echo "------------------------------"
-echo "Publish cost:"
+# echo "------------------------------"
+# echo "Publish cost:"
 
-coin_balance=$(get_balance coin)
-let coin_cost=$coin_initial_balance-$coin_balance
-echo "coin: $coin_cost"
+# coin_balance=$(get_balance coin)
+# let coin_cost=$coin_initial_balance-$coin_balance
+# echo "coin: $coin_cost"
 
-faucet_balance=$(get_balance faucet)
-let faucet_cost=$faucet_initial_balance-$faucet_balance
-echo "faucet: $faucet_cost"
+# faucet_balance=$(get_balance faucet)
+# let faucet_cost=$faucet_initial_balance-$faucet_balance
+# echo "faucet: $faucet_cost"
 
-core_balance=$(get_balance core)
-let core_cost=$core_initial_balance-$core_balance
-echo "core: $core_cost"
+# core_balance=$(get_balance core)
+# let core_cost=$core_initial_balance-$core_balance
+# echo "core: $core_cost"
 
-distribution_balance=$(get_balance distribution)
-let distribution_cost=$distribution_initial_balance-$distribution_balance
-echo "distribution: $distribution_cost"
+# distribution_balance=$(get_balance distribution)
+# let distribution_cost=$distribution_initial_balance-$distribution_balance
+# echo "distribution: $distribution_cost"
 
-gateway_balance=$(get_balance gateway)
-let gateway_cost=$gateway_initial_balance-$gateway_balance
-echo "gateway: $gateway_cost"
-echo "------------------------------"
+# gateway_balance=$(get_balance gateway)
+# let gateway_cost=$gateway_initial_balance-$gateway_balance
+# echo "gateway: $gateway_cost"
+# echo "------------------------------"
 
 if [[ $FAUCET_INIT == "ON" ]]
 then
@@ -269,34 +293,34 @@ then
     aptos move run --function-id $GATEWAY_INITIALIZE --args $ARGS --profile gateway --assume-yes
 fi
 
-echo "------------------------------"
-echo "Publish and initialize cost:"
+# echo "------------------------------"
+# echo "Publish and initialize cost:"
 
-coin_balance=$(get_balance coin)
-let coin_cost=$coin_initial_balance-$coin_balance
-echo "coin: $coin_cost"
+# coin_balance=$(get_balance coin)
+# let coin_cost=$coin_initial_balance-$coin_balance
+# echo "coin: $coin_cost"
 
-faucet_balance=$(get_balance faucet)
-let faucet_cost=$faucet_initial_balance-$faucet_balance
-echo "faucet: $faucet_cost"
+# faucet_balance=$(get_balance faucet)
+# let faucet_cost=$faucet_initial_balance-$faucet_balance
+# echo "faucet: $faucet_cost"
 
-core_balance=$(get_balance core)
-let core_cost=$core_initial_balance-$core_balance
-echo "core: $core_cost"
+# core_balance=$(get_balance core)
+# let core_cost=$core_initial_balance-$core_balance
+# echo "core: $core_cost"
 
-distribution_balance=$(get_balance distribution)
-let distribution_cost=$distribution_initial_balance-$distribution_balance
-echo "distribution: $distribution_cost"
+# distribution_balance=$(get_balance distribution)
+# let distribution_cost=$distribution_initial_balance-$distribution_balance
+# echo "distribution: $distribution_cost"
 
-gateway_balance=$(get_balance gateway)
-let gateway_cost=$gateway_initial_balance-$gateway_balance
-echo "gateway: $gateway_cost"
+# gateway_balance=$(get_balance gateway)
+# let gateway_cost=$gateway_initial_balance-$gateway_balance
+# echo "gateway: $gateway_cost"
 
-company_fund_balance=$(get_balance company_fund)
-let company_fund_cost=$company_fund_initial_balance-$company_fund_balance
-echo "company_fund: $company_fund_cost"
+# company_fund_balance=$(get_balance company_fund)
+# let company_fund_cost=$company_fund_initial_balance-$company_fund_balance
+# echo "company_fund: $company_fund_cost"
 
-team_fund_balance=$(get_balance team_fund)
-let team_fund_cost=$team_fund_initial_balance-$team_fund_balance
-echo "team_fund: $team_fund_cost"
-echo "------------------------------"
+# team_fund_balance=$(get_balance team_fund)
+# let team_fund_cost=$team_fund_initial_balance-$team_fund_balance
+# echo "team_fund: $team_fund_cost"
+# echo "------------------------------"
