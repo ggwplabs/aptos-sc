@@ -185,30 +185,6 @@ then
     # aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
-# echo "------------------------------"
-# echo "Publish cost:"
-
-# coin_balance=$(get_balance coin)
-# let coin_cost=$coin_initial_balance-$coin_balance
-# echo "coin: $coin_cost"
-
-# faucet_balance=$(get_balance faucet)
-# let faucet_cost=$faucet_initial_balance-$faucet_balance
-# echo "faucet: $faucet_cost"
-
-# core_balance=$(get_balance core)
-# let core_cost=$core_initial_balance-$core_balance
-# echo "core: $core_cost"
-
-# distribution_balance=$(get_balance distribution)
-# let distribution_cost=$distribution_initial_balance-$distribution_balance
-# echo "distribution: $distribution_cost"
-
-# gateway_balance=$(get_balance gateway)
-# let gateway_cost=$gateway_initial_balance-$gateway_balance
-# echo "gateway: $gateway_cost"
-# echo "------------------------------"
-
 if [[ $FAUCET_INIT == "ON" ]]
 then
     # Register coin store for faucet
@@ -292,35 +268,3 @@ then
     ARGS="address:$accumulative_fund u64:$reward_coefficient u64:$gpass_daily_reward_coefficient u8:$royalty"
     aptos move run --function-id $GATEWAY_INITIALIZE --args $ARGS --profile gateway --assume-yes
 fi
-
-# echo "------------------------------"
-# echo "Publish and initialize cost:"
-
-# coin_balance=$(get_balance coin)
-# let coin_cost=$coin_initial_balance-$coin_balance
-# echo "coin: $coin_cost"
-
-# faucet_balance=$(get_balance faucet)
-# let faucet_cost=$faucet_initial_balance-$faucet_balance
-# echo "faucet: $faucet_cost"
-
-# core_balance=$(get_balance core)
-# let core_cost=$core_initial_balance-$core_balance
-# echo "core: $core_cost"
-
-# distribution_balance=$(get_balance distribution)
-# let distribution_cost=$distribution_initial_balance-$distribution_balance
-# echo "distribution: $distribution_cost"
-
-# gateway_balance=$(get_balance gateway)
-# let gateway_cost=$gateway_initial_balance-$gateway_balance
-# echo "gateway: $gateway_cost"
-
-# company_fund_balance=$(get_balance company_fund)
-# let company_fund_cost=$company_fund_initial_balance-$company_fund_balance
-# echo "company_fund: $company_fund_cost"
-
-# team_fund_balance=$(get_balance team_fund)
-# let team_fund_cost=$team_fund_initial_balance-$team_fund_balance
-# echo "team_fund: $team_fund_cost"
-# echo "------------------------------"
