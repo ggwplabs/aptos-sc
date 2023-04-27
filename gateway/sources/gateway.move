@@ -32,6 +32,7 @@ module gateway::gateway {
     const ERR_MISSING_GAME_SESSION: u64 = 0x1016;
     const ERR_GAME_SESSION_ALREADY_FINALIZED: u64 = 0x1017;
     const ERR_EMPTY_GAMES_REWARD_FUND: u64 = 0x1018;
+    const ERR_GAME_SESSION_ALREADY_STARTED: u64 = 0x01019;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
@@ -453,6 +454,9 @@ module gateway::gateway {
         assert!(gpass::get_burn_period_passed(ggwp_core_addr, player_addr) == false, ERR_NOT_ENOUGH_GPASS);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
+        // TODO: Check already opened sessions in this project
+        // TODO: table with bools is_open_session by projects
+
         // Burn gpass_cost GPASS from user wallet
         gpass::burn(player, ggwp_core_addr, project_info.gpass_cost);
 
@@ -649,9 +653,11 @@ module gateway::gateway {
         let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
         let session_id = 1;
         while (session_id <= player_info.game_sessions_counter) {
-            let session = table_with_length::borrow(project_sessions, session_id);
-            if (session.status == GAME_STATUS_NONE) {
-                return session_id
+            if (table_with_length::contains(project_sessions, session_id)) {
+                let session = table_with_length::borrow(project_sessions, session_id);
+                if (session.status == GAME_STATUS_NONE) {
+                    return session_id
+                };
             };
 
             session_id = session_id + 1;

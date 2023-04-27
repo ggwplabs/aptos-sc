@@ -27,6 +27,11 @@ module gateway::gateway_test {
     const ERR_NOT_ENOUGH_GPASS: u64 = 0x1012;
     const ERR_PLAYER_INFO_NOT_EXISTS: u64 = 0x1013;
     const ERR_PLAYER_BLOCKED: u64 = 0x1014;
+    const ERR_INVALID_GAME_SESSION_STATUS: u64 = 0x1015;
+    const ERR_MISSING_GAME_SESSION: u64 = 0x1016;
+    const ERR_GAME_SESSION_ALREADY_FINALIZED: u64 = 0x1017;
+    const ERR_EMPTY_GAMES_REWARD_FUND: u64 = 0x1018;
+    const ERR_GAME_SESSION_ALREADY_STARTED: u64 = 0x01019;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
@@ -85,6 +90,51 @@ module gateway::gateway_test {
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     public entry fun start_game_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, player_addr)
+            = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
+
+        coin::ggwp::mint_to(ggwp_coin, 1100000000000, player_addr);
+
+        gpass::add_reward_table_row(ggwp_core, 5000 * 100000000, 5);
+        gpass::add_reward_table_row(ggwp_core, 10000 * 100000000, 10);
+        gpass::add_reward_table_row(ggwp_core, 15000 * 100000000, 15);
+
+        gpass::freeze_tokens(player, ggwp_core_addr, 1000000000000);
+        assert!(gpass::get_balance(player_addr) == 10, 1);
+        assert!(coin::balance<GGWPCoin>(player_addr) == 20000000000, 1);
+
+        let reward_coefficient = 20000;
+        let gpass_daily_reward_coefficient = 10;
+        let royalty = 8;
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
+
+        let gpass_cost = 1;
+        let project_name = string::utf8(b"test project game");
+        gateway::sign_up(contributor, gateway_addr, project_name, gpass_cost);
+        let project_name = string::utf8(b"test project game 2");
+        // player is second contributor
+        gateway::sign_up(player, gateway_addr, project_name, gpass_cost);
+
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
+        assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
+        assert!(gateway::get_game_session_status(player_addr, 1, 1) == 3, 1);
+        assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 0, 1);
+        assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 0, 1);
+
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, player_addr, 2);
+
+        // gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, 1, 2);
+
+        // gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
+        // assert!(gateway::get_player_session_counter(player_addr) == 2, 1);
+        // assert!(gateway::get_game_session_status(player_addr, 1, 2) == 3, 1);
+        // assert!(gateway::get_game_session_reward(player_addr, 1, 2) == 0, 1);
+        // assert!(gateway::get_game_session_royalty(player_addr, 1, 2) == 0, 1);
+    }
+
+    #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
+    #[expected_failure(abort_code = ERR_GAME_SESSION_ALREADY_STARTED, location = gateway::gateway)]
+    public entry fun start_two_games_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {
         let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor_addr, player_addr)
             = fixture_setup(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor, player);
 
