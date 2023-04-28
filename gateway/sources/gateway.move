@@ -48,7 +48,6 @@ module gateway::gateway {
         games_reward_fund: Coin<GGWPCoin>,
         royalty: u8,
         reward_coefficient: u64,
-        gpass_daily_reward_coefficient: u64,
         project_counter: u64,
     }
 
@@ -148,7 +147,6 @@ module gateway::gateway {
     public entry fun initialize(gateway: &signer,
         accumulative_fund_addr: address,
         reward_coefficient: u64,
-        gpass_daily_reward_coefficient: u64,
         royalty: u8,
     ) {
         let gateway_addr = signer::address_of(gateway);
@@ -164,7 +162,6 @@ module gateway::gateway {
                 games_reward_fund: coin::zero<GGWPCoin>(),
                 royalty: royalty,
                 reward_coefficient: reward_coefficient,
-                gpass_daily_reward_coefficient: gpass_daily_reward_coefficient,
                 project_counter: 0,
             };
             move_to(gateway, gateway_info);
@@ -191,7 +188,6 @@ module gateway::gateway {
 
     public entry fun update_params(gateway: &signer,
         reward_coefficient: u64,
-        gpass_daily_reward_coefficient: u64,
         royalty: u8,
     ) acquires GatewayInfo {
         let gateway_addr = signer::address_of(gateway);
@@ -200,7 +196,6 @@ module gateway::gateway {
 
         let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
         gateway_info.reward_coefficient = reward_coefficient;
-        gateway_info.gpass_daily_reward_coefficient = gpass_daily_reward_coefficient;
         gateway_info.royalty = royalty;
     }
 
@@ -495,7 +490,7 @@ module gateway::gateway {
         contributor_addr: address,
         project_id: u64,
         status: u8,
-    ) acquires GatewayInfo, ProjectInfo, PlayerInfo {
+    ) acquires ProjectInfo, PlayerInfo {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -522,28 +517,29 @@ module gateway::gateway {
         let reward_amount = 0;
         let royalty_amount = 0;
 
+        // TODO: not pay reward, save info in table instead
         // If player win pay rewards
-        if (status == GAME_STATUS_WIN) {
-            let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
-            let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
-            assert!(games_reward_fund_amount != 0, ERR_EMPTY_GAMES_REWARD_FUND);
+        // if (status == GAME_STATUS_WIN) {
+        //     let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+        //     let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
+        //     assert!(games_reward_fund_amount != 0, ERR_EMPTY_GAMES_REWARD_FUND);
 
-            reward_amount = calc_reward_amount(
-                games_reward_fund_amount,
-                gpass::get_total_users_freezed(ggwp_core_addr),
-                gateway_info.reward_coefficient,
-                gpass::get_daily_gpass_reward(ggwp_core_addr),
-                gateway_info.gpass_daily_reward_coefficient,
-            );
+        //     reward_amount = calc_reward_amount(
+        //         games_reward_fund_amount,
+        //         gpass::get_total_users_freezed(ggwp_core_addr),
+        //         gateway_info.reward_coefficient,
+        //         gpass::get_daily_gpass_reward(ggwp_core_addr),
+        //         gateway_info.gpass_daily_reward_coefficient,
+        //     );
 
-            royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
-            // Transfer reward_amount - royalty_amount to player from games_reward_fund
-            let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, reward_amount - royalty_amount);
-            coin::deposit(player_addr, reward_coins);
-            // Transfer royalty_amount to accumulative fund from games_reward_fund
-            let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
-            coin::deposit(gateway_info.accumulative_fund, royalty_coins);
-        };
+        //     royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
+        //     // Transfer reward_amount - royalty_amount to player from games_reward_fund
+        //     let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, reward_amount - royalty_amount);
+        //     coin::deposit(player_addr, reward_coins);
+        //     // Transfer royalty_amount to accumulative fund from games_reward_fund
+        //     let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
+        //     coin::deposit(gateway_info.accumulative_fund, royalty_coins);
+        // };
 
         let now = timestamp::now_seconds();
         event::emit_event<FinalizeGameEvent>(
@@ -659,26 +655,27 @@ module gateway::gateway {
     // Utils.
     const DECIMALS: u64 = 100000000;
 
-    /// Calculate reward amount for user.
-    public fun calc_reward_amount(
-        games_reward_fund_amount: u64,
-        freezed_users: u64,
-        reward_coefficient: u64,
-        gpass_daily_reward: u64,
-        gpass_daily_reward_coefficient: u64,
-    ): u64 {
-        let reward_amount = 0;
-        if (freezed_users != 0) {
-            reward_amount = games_reward_fund_amount / (freezed_users * reward_coefficient);
-        };
+    // TODO: fix this
+    // /// Calculate reward amount for user.
+    // public fun calc_reward_amount(
+    //     games_reward_fund_amount: u64,
+    //     freezed_users: u64,
+    //     reward_coefficient: u64,
+    //     gpass_daily_reward: u64,
+    //     gpass_daily_reward_coefficient: u64,
+    // ): u64 {
+    //     let reward_amount = 0;
+    //     if (freezed_users != 0) {
+    //         reward_amount = games_reward_fund_amount / (freezed_users * reward_coefficient);
+    //     };
 
-        let gpass_daily_reward_amount = gpass_daily_reward * DECIMALS;
-        if (reward_amount > gpass_daily_reward_amount) {
-            reward_amount = gpass_daily_reward_amount / gpass_daily_reward_coefficient;
-        };
+    //     let gpass_daily_reward_amount = gpass_daily_reward * DECIMALS;
+    //     if (reward_amount > gpass_daily_reward_amount) {
+    //         reward_amount = gpass_daily_reward_amount / gpass_daily_reward_coefficient;
+    //     };
 
-        reward_amount
-    }
+    //     reward_amount
+    // }
 
     /// Get the percent value.
     public fun calc_royalty_amount(amount: u64, royalty: u8): u64 {
