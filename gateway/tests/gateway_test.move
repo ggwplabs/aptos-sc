@@ -70,22 +70,16 @@ module gateway::gateway_test {
         gateway::sign_up(contributor, gateway_addr, project_name, gpass_cost);
 
         gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
-        assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
-        assert!(gateway::get_game_session_status(player_addr, 1, 1) == 3, 1);
-        assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 0, 1);
-        assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 0, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
         assert!(gpass::get_balance(player_addr) == 5, 1);
 
         // Finalize game and get reward
         let status = 1;
-        gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, 1, status);
+        gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, status);
         assert!(gateway::games_reward_fund_balance(gateway_addr) == 9999500000, 1);
         assert!(coin::balance<GGWPCoin>(player_addr) == 20000460000, 1);
         assert!(gpass::get_balance(player_addr) == 5, 1);
-        assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
-        assert!(gateway::get_game_session_status(player_addr, 1, 1) == 1, 1);
-        assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 500000, 1);
-        assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 40000, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == false, 1);
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
@@ -116,20 +110,34 @@ module gateway::gateway_test {
         gateway::sign_up(player, gateway_addr, project_name, gpass_cost);
 
         gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
-        assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
-        assert!(gateway::get_game_session_status(player_addr, 1, 1) == 3, 1);
-        assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 0, 1);
-        assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 0, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 3, 1);
+        assert!(gateway::get_is_open_session(player_addr, 2) == false, 1);
+        assert!(gateway::get_session_status(player_addr, 2) == 4, 1);
 
         gateway::start_game(player, gateway_addr, ggwp_core_addr, player_addr, 2);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 3, 1);
+        assert!(gateway::get_is_open_session(player_addr, 2) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 2) == 3, 1);
 
-        // gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, 1, 2);
+        gateway::finalize_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1, 2);
+        assert!(gateway::get_is_open_session(player_addr, 1) == false, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 4, 1);
+        assert!(gateway::get_is_open_session(player_addr, 2) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 2) == 3, 1);
 
-        // gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
-        // assert!(gateway::get_player_session_counter(player_addr) == 2, 1);
-        // assert!(gateway::get_game_session_status(player_addr, 1, 2) == 3, 1);
-        // assert!(gateway::get_game_session_reward(player_addr, 1, 2) == 0, 1);
-        // assert!(gateway::get_game_session_royalty(player_addr, 1, 2) == 0, 1);
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 3, 1);
+        assert!(gateway::get_is_open_session(player_addr, 2) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 2) == 3, 1);
+
+        gateway::finalize_game(player, gateway_addr, ggwp_core_addr, player_addr, 2, 0);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 3, 1);
+        assert!(gateway::get_is_open_session(player_addr, 2) == false, 1);
+        assert!(gateway::get_session_status(player_addr, 2) == 4, 1);
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
@@ -157,17 +165,14 @@ module gateway::gateway_test {
         let project_name = string::utf8(b"test project game");
         gateway::sign_up(contributor, gateway_addr, project_name, gpass_cost);
 
-        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
-        assert!(gateway::get_player_session_counter(player_addr) == 1, 1);
-        assert!(gateway::get_game_session_status(player_addr, 1, 1) == 3, 1);
-        assert!(gateway::get_game_session_reward(player_addr, 1, 1) == 0, 1);
-        assert!(gateway::get_game_session_royalty(player_addr, 1, 1) == 0, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == false, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 4, 1);
 
         gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
-        assert!(gateway::get_player_session_counter(player_addr) == 2, 1);
-        assert!(gateway::get_game_session_status(player_addr, 1, 2) == 3, 1);
-        assert!(gateway::get_game_session_reward(player_addr, 1, 2) == 0, 1);
-        assert!(gateway::get_game_session_royalty(player_addr, 1, 2) == 0, 1);
+        assert!(gateway::get_is_open_session(player_addr, 1) == true, 1);
+        assert!(gateway::get_session_status(player_addr, 1) == 3, 1);
+
+        gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
@@ -240,7 +245,6 @@ module gateway::gateway_test {
         // Blocked player start the game
         gateway::start_game(player, gateway_addr, ggwp_core_addr, contributor_addr, 1);
     }
-
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor = @0x2222, player = @0x1111)]
     public entry fun block_unblock_project_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor: &signer, player: &signer) {

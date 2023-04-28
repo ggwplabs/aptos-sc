@@ -68,6 +68,7 @@ update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_gateway "$GATEWAY" "gateway/Move.toml"
+echo "Keys in Move.toml updated"
 
 if [[ $TESTING_SCRIPT == "ON" ]]
 then

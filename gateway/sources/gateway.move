@@ -38,9 +38,10 @@ module gateway::gateway {
     const MAX_PROJECT_NAME_LEN: u64 = 128;
 
     const GAME_STATUS_DRAW: u8 = 0;
-    const GAME_STATUS_WIN: u8 = 1;
+    const GAME_STATUS_WIN:  u8 = 1;
     const GAME_STATUS_LOSS: u8 = 2;
     const GAME_STATUS_NONE: u8 = 3;
+    const GAME_STATUS_NULL: u8 = 4;
 
     struct GatewayInfo has key, store {
         accumulative_fund: address,
@@ -62,16 +63,11 @@ module gateway::gateway {
 
     struct PlayerInfo has key, store {
         is_blocked: bool,
-        game_sessions_counter: u64,
-        // <project_id, <session_id, GameSessionInfo>>
-        game_sessions: TableWithLength<u64, TableWithLength<u64, GameSessionInfo>>,
-    }
+        // <project_id, game_session_status>
+        game_sessions: TableWithLength<u64, u8>,
 
-    struct GameSessionInfo has store {
-        // 0 (draw) / 1 (win) / 2 (loss) / 3 (none)
-        status: u8,
-        reward: u64,
-        royalty: u64,
+        start_game_events: EventHandle<StartGameEvent>,
+        finalize_game_events: EventHandle<FinalizeGameEvent>,
     }
 
     struct Events has key {
@@ -85,8 +81,7 @@ module gateway::gateway {
         sign_up_events: EventHandle<SignUpEvent>,
         remove_events: EventHandle<RemoveEvent>,
 
-        start_game_events: EventHandle<StartGameEvent>,
-        finalize_game_events: EventHandle<FinalizeGameEvent>,
+        new_player_events: EventHandle<NewPlayerEvent>,
     }
 
     struct DepositEvent has drop, store {
@@ -132,17 +127,18 @@ module gateway::gateway {
         date: u64,
     }
 
-    struct StartGameEvent has drop, store {
+    struct NewPlayerEvent has drop, store {
         player: address,
+        date: u64,
+    }
+
+    struct StartGameEvent has drop, store {
         project_id: u64,
-        session_id: u64,
         date: u64,
     }
 
     struct FinalizeGameEvent has drop, store {
-        player: address,
         project_id: u64,
-        session_id: u64,
         status: u8,
         reward: u64,
         royalty: u64,
@@ -186,8 +182,7 @@ module gateway::gateway {
                 sign_up_events: account::new_event_handle<SignUpEvent>(gateway),
                 remove_events: account::new_event_handle<RemoveEvent>(gateway),
 
-                start_game_events: account::new_event_handle<StartGameEvent>(gateway),
-                finalize_game_events: account::new_event_handle<FinalizeGameEvent>(gateway),
+                new_player_events: account::new_event_handle<NewPlayerEvent>(gateway),
             });
         };
     }
@@ -438,15 +433,25 @@ module gateway::gateway {
         assert!(project_info.id == project_id, ERR_INVALID_PROJECT_ID);
         assert!(project_info.is_blocked == false, ERR_PROJECT_BLOCKED);
 
+        let now = timestamp::now_seconds();
         let player_addr = signer::address_of(player);
         // Create PlayerInfo if not exists
         if (exists<PlayerInfo>(player_addr) == false) {
-            // table_with_length::new<u64, GameSessionInfo>()
             move_to(player, PlayerInfo {
                 is_blocked: false,
-                game_sessions_counter: 0,
-                game_sessions: table_with_length::new<u64, TableWithLength<u64, GameSessionInfo>>(),
+                game_sessions: table_with_length::new<u64, u8>(),
+                start_game_events: account::new_event_handle<StartGameEvent>(player),
+                finalize_game_events: account::new_event_handle<FinalizeGameEvent>(player),
             });
+
+            let events = borrow_global_mut<Events>(gateway_addr);
+            event::emit_event<NewPlayerEvent>(
+                &mut events.new_player_events,
+                NewPlayerEvent {
+                    player: player_addr,
+                    date: now,
+                }
+            );
         };
 
         let player_info = borrow_global_mut<PlayerInfo>(player_addr);
@@ -454,43 +459,31 @@ module gateway::gateway {
         assert!(gpass::get_burn_period_passed(ggwp_core_addr, player_addr) == false, ERR_NOT_ENOUGH_GPASS);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
-        // TODO: Check already opened sessions in this project
-        // TODO: table with bools is_open_session by projects
+        // Check already opened sessions in this project
+        if (table_with_length::contains(&player_info.game_sessions, project_id)) {
+            let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+            assert!(*game_session_status == GAME_STATUS_NULL, ERR_GAME_SESSION_ALREADY_STARTED);
+        };
 
         // Burn gpass_cost GPASS from user wallet
         gpass::burn(player, ggwp_core_addr, project_info.gpass_cost);
 
-        // Create game session
-        let new_session_id = player_info.game_sessions_counter + 1;
-        let game_session = GameSessionInfo {
-            status: GAME_STATUS_NONE,
-            reward: 0,
-            royalty: 0,
-        };
-
-        // Add project_id table into game sessions if not exists
+        // Create game session in table if not exists
         if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
             table_with_length::add(&mut player_info.game_sessions,
                 project_id,
-                table_with_length::new<u64, GameSessionInfo>()
+                GAME_STATUS_NULL,
             );
         };
 
-        // Insert new session into table
-        let sessions = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
-        table_with_length::add(sessions, new_session_id, game_session);
+        // Update game status to NONE - session created
+        let game_session_status = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        *game_session_status = GAME_STATUS_NONE;
 
-        // Update game_session counter
-        player_info.game_sessions_counter = new_session_id;
-
-        let events = borrow_global_mut<Events>(gateway_addr);
-        let now = timestamp::now_seconds();
         event::emit_event<StartGameEvent>(
-            &mut events.start_game_events,
+            &mut player_info.start_game_events,
             StartGameEvent {
-                player: player_addr,
                 project_id: project_id,
-                session_id: new_session_id,
                 date: now,
             }
         );
@@ -501,9 +494,8 @@ module gateway::gateway {
         ggwp_core_addr: address,
         contributor_addr: address,
         project_id: u64,
-        session_id: u64,
         status: u8,
-    ) acquires GatewayInfo, ProjectInfo, PlayerInfo, Events {
+    ) acquires GatewayInfo, ProjectInfo, PlayerInfo {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -522,17 +514,16 @@ module gateway::gateway {
 
         // Check game session status
         assert!(table_with_length::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);
-        let sessions = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
-        assert!(table_with_length::contains(sessions, session_id), ERR_MISSING_GAME_SESSION);
-        let game_session_info = table_with_length::borrow_mut(sessions, session_id);
-        assert!(game_session_info.status == 3, ERR_GAME_SESSION_ALREADY_FINALIZED);
+        let game_session_status = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        assert!(*game_session_status == GAME_STATUS_NONE, ERR_GAME_SESSION_ALREADY_FINALIZED);
+        *game_session_status = GAME_STATUS_NULL;
 
         // Finalize game session
         let reward_amount = 0;
         let royalty_amount = 0;
 
         // If player win pay rewards
-        if (status == 1) {
+        if (status == GAME_STATUS_WIN) {
             let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
             let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
             assert!(games_reward_fund_amount != 0, ERR_EMPTY_GAMES_REWARD_FUND);
@@ -554,18 +545,11 @@ module gateway::gateway {
             coin::deposit(gateway_info.accumulative_fund, royalty_coins);
         };
 
-        game_session_info.status = status;
-        game_session_info.reward = reward_amount;
-        game_session_info.royalty = royalty_amount;
-
-        let events = borrow_global_mut<Events>(gateway_addr);
         let now = timestamp::now_seconds();
         event::emit_event<FinalizeGameEvent>(
-            &mut events.finalize_game_events,
+            &mut player_info.finalize_game_events,
             FinalizeGameEvent {
-                player: player_addr,
                 project_id: project_id,
-                session_id: session_id,
                 status: status,
                 reward: reward_amount,
                 royalty: royalty_amount,
@@ -640,57 +624,36 @@ module gateway::gateway {
     }
 
     #[view]
-    public fun get_player_session_counter(player_addr: address): u64 acquires PlayerInfo {
-        assert!(exists<PlayerInfo>(player_addr), ERR_NOT_INITIALIZED);
-        let player_info = borrow_global<PlayerInfo>(player_addr);
-        player_info.game_sessions_counter
-    }
-
-    #[view]
-    public fun get_open_session(player_addr: address, project_id: u64): u64 acquires PlayerInfo {
-        assert!(exists<PlayerInfo>(player_addr), ERR_NOT_INITIALIZED);
-        let player_info = borrow_global<PlayerInfo>(player_addr);
-        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
-        let session_id = 1;
-        while (session_id <= player_info.game_sessions_counter) {
-            if (table_with_length::contains(project_sessions, session_id)) {
-                let session = table_with_length::borrow(project_sessions, session_id);
-                if (session.status == GAME_STATUS_NONE) {
-                    return session_id
-                };
-            };
-
-            session_id = session_id + 1;
+    public fun get_session_status(player_addr: address, project_id: u64): u8 acquires PlayerInfo {
+        if (exists<PlayerInfo>(player_addr) == false) {
+            return GAME_STATUS_NULL
         };
 
-        return 0
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
+            return GAME_STATUS_NULL
+        };
+
+        let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+        return *game_session_status
     }
 
     #[view]
-    public fun get_game_session_status(player_addr: address, project_id: u64, session_id: u64): u8 acquires PlayerInfo {
-        assert!(exists<PlayerInfo>(player_addr), ERR_NOT_INITIALIZED);
-        let player_info = borrow_global<PlayerInfo>(player_addr);
-        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
-        let session = table_with_length::borrow(project_sessions, session_id);
-        session.status
-    }
+    public fun get_is_open_session(player_addr: address, project_id: u64): bool acquires PlayerInfo {
+        if (exists<PlayerInfo>(player_addr) == false) {
+            return false
+        };
 
-    #[view]
-    public fun get_game_session_reward(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
-        assert!(exists<PlayerInfo>(player_addr), ERR_NOT_INITIALIZED);
         let player_info = borrow_global<PlayerInfo>(player_addr);
-        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
-        let session = table_with_length::borrow(project_sessions, session_id);
-        session.reward
-    }
+        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
+            return false
+        };
 
-    #[view]
-    public fun get_game_session_royalty(player_addr: address, project_id: u64, session_id: u64): u64 acquires PlayerInfo {
-        assert!(exists<PlayerInfo>(player_addr), ERR_NOT_INITIALIZED);
-        let player_info = borrow_global<PlayerInfo>(player_addr);
-        let project_sessions = table_with_length::borrow(&player_info.game_sessions, project_id);
-        let session = table_with_length::borrow(project_sessions, session_id);
-        session.royalty
+        let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+        if (*game_session_status == GAME_STATUS_NONE) {
+            return true
+        };
+        return false
     }
 
     // Utils.
