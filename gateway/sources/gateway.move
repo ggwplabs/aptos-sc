@@ -69,7 +69,6 @@ module gateway::gateway {
     }
 
     struct GamesInFrame has drop, store {
-        contributor: address,
         gpass_spent: u64,
         wins: u64,
     }
@@ -188,8 +187,7 @@ module gateway::gateway {
     struct FinalizeGameEvent has drop, store {
         project_id: u64,
         status: u8,
-        reward: u64,
-        royalty: u64,
+        time_frame: u64,
         date: u64,
     }
 
@@ -237,7 +235,7 @@ module gateway::gateway {
                 project_counter: 0,
 
                 time_frame: time_frame,
-                last_distribute: now,
+                last_distribute: now, // TODO: now?
                 games_in_frame: table::new<u64, GamesInFrame>(),
                 total_gpass_spent_in_frame: 0,
 
@@ -667,7 +665,7 @@ module gateway::gateway {
         contributor_addr: address,
         project_id: u64,
         status: u8,
-    ) acquires ProjectInfo, PlayerInfo {
+    ) acquires GatewayInfo, ProjectInfo, PlayerInfo {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -690,45 +688,61 @@ module gateway::gateway {
         assert!(*game_session_status == GAME_STATUS_NONE, ERR_GAME_SESSION_ALREADY_FINALIZED);
         *game_session_status = GAME_STATUS_NULL;
 
-        // Finalize game session
-        let reward_amount = 0;
-        let royalty_amount = 0;
-
-        // TODO: check burn_period and erase reward_history vector
-
-        // TODO: not pay reward, save info in history table instead
-        // TODO: find index in history_table
-        // If player win pay rewards
-        // if (status == GAME_STATUS_WIN) {
-        //     let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
-        //     let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
-        //     assert!(games_reward_fund_amount != 0, ERR_EMPTY_GAMES_REWARD_FUND);
-
-        //     reward_amount = calc_reward_amount(
-        //         games_reward_fund_amount,
-        //         gpass::get_total_users_freezed(ggwp_core_addr),
-        //         gateway_info.reward_coefficient,
-        //         gpass::get_daily_gpass_reward(ggwp_core_addr),
-        //         gateway_info.gpass_daily_reward_coefficient,
-        //     );
-
-        //     royalty_amount = calc_royalty_amount(reward_amount, gateway_info.royalty);
-        //     // Transfer reward_amount - royalty_amount to player from games_reward_fund
-        //     let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, reward_amount - royalty_amount);
-        //     coin::deposit(player_addr, reward_coins);
-        //     // Transfer royalty_amount to accumulative fund from games_reward_fund
-        //     let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
-        //     coin::deposit(gateway_info.accumulative_fund, royalty_coins);
-        // };
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
 
         let now = timestamp::now_seconds();
+        let since_burn = now - gateway_info.last_burn;
+        if (since_burn >= gateway_info.burn_period) {
+            let spent_frames = since_burn / gateway_info.time_frame;
+            assert!(spent_frames >= gateway_info.histoty_length, ERR_INVALID_ERASE_HISTORY);
+            erase_player_history(&mut player_info.time_frames_history, gateway_info.histoty_length, gateway_info.project_counter);
+            player_info.last_get_reward = gateway_info.last_burn + (spent_frames * gateway_info.time_frame);
+        };
+
+        let since_get_reward = now - player_info.last_get_reward;
+        let history_index = since_get_reward / gateway_info.time_frame;
+
+        // Add or update in_frame data
+        let wins = 0;
+        if (status == GAME_STATUS_WIN) {
+            wins = 1;
+        };
+
+        gateway_info.total_gpass_spent_in_frame = gateway_info.total_gpass_spent_in_frame + project_info.gpass_cost;
+        if (table::contains(&gateway_info.games_in_frame, project_id) == false) {
+            table::add(&mut gateway_info.games_in_frame, project_id, GamesInFrame {
+                gpass_spent: project_info.gpass_cost,
+                wins: wins,
+            });
+        } else {
+            let games_in_frame_val = table::borrow_mut(&mut gateway_info.games_in_frame, project_id);
+            games_in_frame_val.gpass_spent = games_in_frame_val.gpass_spent + project_info.gpass_cost;
+            games_in_frame_val.wins = games_in_frame_val.wins + wins;
+        };
+
+        // Add or update history data
+        let frame_player_history_entry = vector::borrow_mut<PlayerFrameHistory>(&mut player_info.time_frames_history, history_index);
+        let frame_history_entry = vector::borrow_mut<FrameHistory>(&mut gateway_info.time_frames_history, history_index);
+
+        if (status == GAME_STATUS_WIN) {
+            if (table::contains(&frame_player_history_entry.projects_wins, project_id) == false) {
+                table::add(&mut frame_player_history_entry.projects_wins, project_id, 1);
+            } else {
+                let project_wins = table::borrow_mut(&mut frame_player_history_entry.projects_wins, project_id);
+                *project_wins = *project_wins + 1;
+            };
+        };
+
+        if (table::contains(&frame_history_entry.projects_win_cost, project_id) == false) {
+            table::add(&mut frame_history_entry.projects_win_cost, project_id, 0);
+        };
+
         event::emit_event<FinalizeGameEvent>(
             &mut player_info.finalize_game_events,
             FinalizeGameEvent {
                 project_id: project_id,
                 status: status,
-                reward: reward_amount,
-                royalty: royalty_amount,
+                time_frame: history_index,
                 date: now,
             }
         );
@@ -807,12 +821,13 @@ module gateway::gateway {
         );
     }
 
-    public entry fun get_contributor_reward(contributor: &signer,
-        gateway_addr: address,
-    ) {
-        // TODO: check projects exists and not blocked
-        // TODO: use saved history to get contributor rewards
-    }
+    // TODO:
+    // public entry fun get_contributor_reward(contributor: &signer,
+    //     gateway_addr: address,
+    // ) {
+    //     // TODO: check projects exists and not blocked
+    //     // TODO: use saved history to get contributor rewards
+    // }
 
     // Getters
 
