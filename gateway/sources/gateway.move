@@ -2,7 +2,8 @@ module gateway::gateway {
     use std::signer;
     use std::error;
     use std::string::{Self, String};
-    use std::table_with_length::{Self, TableWithLength};
+    use std::table::{Self, Table};
+    use std::vector;
 
     use aptos_framework::account;
     use aptos_framework::timestamp;
@@ -32,7 +33,10 @@ module gateway::gateway {
     const ERR_MISSING_GAME_SESSION: u64 = 0x1016;
     const ERR_GAME_SESSION_ALREADY_FINALIZED: u64 = 0x1017;
     const ERR_EMPTY_GAMES_REWARD_FUND: u64 = 0x1018;
-    const ERR_GAME_SESSION_ALREADY_STARTED: u64 = 0x01019;
+    const ERR_GAME_SESSION_ALREADY_STARTED: u64 = 0x1019;
+    const ERR_TIME_FRAME_NOT_PASSED: u64 = 0x1020;
+    const ERR_INVALID_BURN_PERIOD: u64 = 0x1021;
+    const ERR_INVALID_ERASE_HISTORY: u64 = 0x1022;
 
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
@@ -49,6 +53,31 @@ module gateway::gateway {
         royalty: u8,
         reward_coefficient: u64,
         project_counter: u64,
+
+        time_frame: u64,
+        last_distribute: u64,
+        // <projectd_id, GamesInFrame>
+        games_in_frame: Table<u64, GamesInFrame>,
+        total_gpass_spent_in_frame: u64,
+
+        burn_period: u64,
+        last_burn: u64,
+        histoty_length: u64,
+        // <project_id, RewardsHistory>
+        time_frames_history: vector<FrameHistory>,
+    }
+
+    struct GamesInFrame has drop, store {
+        contributor: address,
+        gpass_spent: u64,
+        wins: u64,
+    }
+
+    struct FrameHistory has store {
+        games_reward_fund_share: u64,
+        // todo: share for contributors?
+        // <project_id, win_cost>
+        projects_win_cost: Table<u64, u64>,
     }
 
     struct ProjectInfo has key, store {
@@ -62,11 +91,18 @@ module gateway::gateway {
 
     struct PlayerInfo has key, store {
         is_blocked: bool,
+        las_get_reward: u64,
         // <project_id, game_session_status>
-        game_sessions: TableWithLength<u64, u8>,
+        game_sessions: Table<u64, u8>,
+        time_frames_history: vector<PlayerFrameHistory>,
 
         start_game_events: EventHandle<StartGameEvent>,
         finalize_game_events: EventHandle<FinalizeGameEvent>,
+    }
+
+    struct PlayerFrameHistory has store {
+        // <project_id, wins>
+        projects_wins: Table<u64, u64>,
     }
 
     struct Events has key {
@@ -81,6 +117,8 @@ module gateway::gateway {
         remove_events: EventHandle<RemoveEvent>,
 
         new_player_events: EventHandle<NewPlayerEvent>,
+
+        calculate_rewards_events: EventHandle<CalculateRewardsEvent>,
     }
 
     struct DepositEvent has drop, store {
@@ -126,6 +164,15 @@ module gateway::gateway {
         date: u64,
     }
 
+    struct CalculateRewardsEvent has drop, store {
+        players_share: u64,
+        contributors_share: u64,
+        total_wins: u64,
+        total_gpass_spent: u64,
+        // TODO: more fields?
+        date: u64,
+    }
+
     struct NewPlayerEvent has drop, store {
         player: address,
         date: u64,
@@ -148,6 +195,8 @@ module gateway::gateway {
         accumulative_fund_addr: address,
         reward_coefficient: u64,
         royalty: u8,
+        time_frame: u64,
+        burn_period: u64,
     ) {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
@@ -157,12 +206,36 @@ module gateway::gateway {
         };
 
         if (!exists<GatewayInfo>(gateway_addr)) {
+            assert!(burn_period % time_frame == 0, ERR_INVALID_BURN_PERIOD);
+            let histoty_length = burn_period / time_frame;
+            let time_frames_history = vector::empty<FrameHistory>();
+            let i = 0;
+            while (i < histoty_length) {
+                vector::push_back(&mut time_frames_history, FrameHistory {
+                    games_reward_fund_share: 0,
+                    projects_win_cost: table::new<u64, u64>(),
+                });
+                i = i + 1;
+            };
+            assert!(vector::length(&time_frames_history) == histoty_length, ERR_NOT_INITIALIZED);
+
+            let now = timestamp::now_seconds();
             let gateway_info = GatewayInfo {
                 accumulative_fund: accumulative_fund_addr,
                 games_reward_fund: coin::zero<GGWPCoin>(),
                 royalty: royalty,
                 reward_coefficient: reward_coefficient,
                 project_counter: 0,
+
+                time_frame: time_frame,
+                last_distribute: now,
+                games_in_frame: table::new<u64, GamesInFrame>(),
+                total_gpass_spent_in_frame: 0,
+
+                burn_period: burn_period,
+                last_burn: now,
+                histoty_length: histoty_length,
+                time_frames_history: time_frames_history,
             };
             move_to(gateway, gateway_info);
         };
@@ -180,6 +253,8 @@ module gateway::gateway {
                 remove_events: account::new_event_handle<RemoveEvent>(gateway),
 
                 new_player_events: account::new_event_handle<NewPlayerEvent>(gateway),
+
+                calculate_rewards_events: account::new_event_handle<CalculateRewardsEvent>(gateway),
             });
         };
     }
@@ -189,6 +264,8 @@ module gateway::gateway {
     public entry fun update_params(gateway: &signer,
         reward_coefficient: u64,
         royalty: u8,
+        time_frame: u64,
+        burn_period: u64,
     ) acquires GatewayInfo {
         let gateway_addr = signer::address_of(gateway);
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
@@ -197,6 +274,8 @@ module gateway::gateway {
         let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
         gateway_info.reward_coefficient = reward_coefficient;
         gateway_info.royalty = royalty;
+        gateway_info.time_frame = time_frame;
+        gateway_info.burn_period = burn_period;
     }
 
     public entry fun update_accumulative_fund(gateway: &signer,
@@ -328,6 +407,80 @@ module gateway::gateway {
         );
     }
 
+    public entry fun calculate_time_frame(gateway: &signer) acquires GatewayInfo, Events {
+        let gateway_addr = signer::address_of(gateway);
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+        let events = borrow_global_mut<Events>(gateway_addr);
+        let now = timestamp::now_seconds();
+
+        let since_last_distribute = now - gateway_info.last_distribute;
+        assert!(since_last_distribute >= gateway_info.time_frame, ERR_TIME_FRAME_NOT_PASSED);
+
+        let since_burn = now - gateway_info.last_burn;
+        if (since_burn >= gateway_info.burn_period) {
+            let spent_frames = since_burn / gateway_info.time_frame;
+            assert!(spent_frames >= gateway_info.histoty_length, ERR_INVALID_ERASE_HISTORY);
+            erase_history(&mut gateway_info.time_frames_history, gateway_info.histoty_length, gateway_info.project_counter);
+            gateway_info.last_burn = gateway_info.last_burn + (spent_frames * gateway_info.time_frame);
+        };
+
+        let since_burn = now - gateway_info.last_burn;
+        let history_index = since_burn / gateway_info.time_frame;
+        let frame_history_entry = vector::borrow_mut<FrameHistory>(&mut gateway_info.time_frames_history, history_index);
+
+        // TODO: write into history table
+        let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
+        let games_reward_fund_share = games_reward_fund_amount / gateway_info.reward_coefficient;
+        frame_history_entry.games_reward_fund_share = games_reward_fund_share;
+
+        // 20% to contributors
+        let games_reward_fund_contributors_share = games_reward_fund_share / 100 * 20;
+        // TODO: every contributor share calc and save it into table
+
+        games_reward_fund_share = games_reward_fund_share - games_reward_fund_contributors_share;
+
+        let total_wins = 0;
+        let project_id = 0;
+        while (project_id < gateway_info.project_counter) {
+            if (table::contains(&gateway_info.games_in_frame, project_id) == false) {
+                project_id = project_id + 1;
+                continue
+            };
+
+            let games_in_frame = table::borrow(&gateway_info.games_in_frame, project_id);
+            let project_win_cost = calculate_project_win_cost(games_in_frame, games_reward_fund_share, gateway_info.total_gpass_spent_in_frame);
+
+            let win_cost_val = table::borrow_mut(&mut frame_history_entry.projects_win_cost, project_id);
+            *win_cost_val = project_win_cost;
+
+            total_wins = total_wins + games_in_frame.wins;
+            project_id = project_id + 1;
+
+            table::remove(&mut gateway_info.games_in_frame, project_id);
+        };
+
+        event::emit_event<CalculateRewardsEvent>(
+            &mut events.calculate_rewards_events,
+            CalculateRewardsEvent {
+                players_share: games_reward_fund_share,
+                contributors_share: games_reward_fund_contributors_share,
+                // TODO: fix values
+                total_gpass_spent: gateway_info.total_gpass_spent_in_frame,
+                total_wins: total_wins,
+                date: now
+            },
+        );
+
+        // Clean up tables except history table
+        // Set counters up
+        gateway_info.last_distribute = now;
+        gateway_info.total_gpass_spent_in_frame = 0;
+    }
+
     // Public API
 
     public entry fun sign_up(contributor: &signer,
@@ -418,7 +571,7 @@ module gateway::gateway {
         ggwp_core_addr: address,
         contributor_addr: address,
         project_id: u64,
-    ) acquires ProjectInfo, PlayerInfo, Events {
+    ) acquires GatewayInfo, ProjectInfo, PlayerInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
@@ -432,9 +585,20 @@ module gateway::gateway {
         let player_addr = signer::address_of(player);
         // Create PlayerInfo if not exists
         if (exists<PlayerInfo>(player_addr) == false) {
+            let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+            let time_frames_history = vector::empty<PlayerFrameHistory>();
+            let i = 0;
+            while (i < gateway_info.histoty_length) {
+                vector::push_back(&mut time_frames_history, PlayerFrameHistory {
+                    projects_wins: table::new<u64, u64>(),
+                });
+            };
+
             move_to(player, PlayerInfo {
                 is_blocked: false,
-                game_sessions: table_with_length::new<u64, u8>(),
+                las_get_reward: 0,
+                game_sessions: table::new<u64, u8>(),
+                time_frames_history: time_frames_history,
                 start_game_events: account::new_event_handle<StartGameEvent>(player),
                 finalize_game_events: account::new_event_handle<FinalizeGameEvent>(player),
             });
@@ -454,9 +618,11 @@ module gateway::gateway {
         assert!(gpass::get_burn_period_passed(ggwp_core_addr, player_addr) == false, ERR_NOT_ENOUGH_GPASS);
         assert!(gpass::get_balance(player_addr) >= project_info.gpass_cost, ERR_NOT_ENOUGH_GPASS);
 
+        // TODO: check burn_period and erase reward_history vector
+
         // Check already opened sessions in this project
-        if (table_with_length::contains(&player_info.game_sessions, project_id)) {
-            let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+        if (table::contains(&player_info.game_sessions, project_id)) {
+            let game_session_status = table::borrow(&player_info.game_sessions, project_id);
             assert!(*game_session_status == GAME_STATUS_NULL, ERR_GAME_SESSION_ALREADY_STARTED);
         };
 
@@ -464,15 +630,15 @@ module gateway::gateway {
         gpass::burn(player, ggwp_core_addr, project_info.gpass_cost);
 
         // Create game session in table if not exists
-        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
-            table_with_length::add(&mut player_info.game_sessions,
+        if (!table::contains(&player_info.game_sessions, project_id)) {
+            table::add(&mut player_info.game_sessions,
                 project_id,
                 GAME_STATUS_NULL,
             );
         };
 
         // Update game status to NONE - session created
-        let game_session_status = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        let game_session_status = table::borrow_mut(&mut player_info.game_sessions, project_id);
         *game_session_status = GAME_STATUS_NONE;
 
         event::emit_event<StartGameEvent>(
@@ -486,7 +652,6 @@ module gateway::gateway {
 
     public entry fun finalize_game(player: &signer,
         gateway_addr: address,
-        ggwp_core_addr: address,
         contributor_addr: address,
         project_id: u64,
         status: u8,
@@ -508,8 +673,8 @@ module gateway::gateway {
         assert!(status < 3, ERR_INVALID_GAME_SESSION_STATUS);
 
         // Check game session status
-        assert!(table_with_length::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);
-        let game_session_status = table_with_length::borrow_mut(&mut player_info.game_sessions, project_id);
+        assert!(table::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);
+        let game_session_status = table::borrow_mut(&mut player_info.game_sessions, project_id);
         assert!(*game_session_status == GAME_STATUS_NONE, ERR_GAME_SESSION_ALREADY_FINALIZED);
         *game_session_status = GAME_STATUS_NULL;
 
@@ -517,7 +682,10 @@ module gateway::gateway {
         let reward_amount = 0;
         let royalty_amount = 0;
 
-        // TODO: not pay reward, save info in table instead
+        // TODO: check burn_period and erase reward_history vector
+
+        // TODO: not pay reward, save info in history table instead
+        // TODO: find index in history_table
         // If player win pay rewards
         // if (status == GAME_STATUS_WIN) {
         //     let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
@@ -552,6 +720,36 @@ module gateway::gateway {
                 date: now,
             }
         );
+    }
+
+    public entry fun get_reward(player: &signer,
+        gateway_addr: address,
+    ) acquires PlayerInfo {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        let player_addr = signer::address_of(player);
+        assert!(exists<PlayerInfo>(player_addr), ERR_PLAYER_INFO_NOT_EXISTS);
+        let player_info = borrow_global_mut<PlayerInfo>(player_addr);
+        assert!(player_info.is_blocked == false, ERR_PLAYER_BLOCKED);
+
+        // TODO:
+        // NEED: games_reward_fund_share, user_project_n_wins (all projects), project_n_win_cost (all projects)
+        // IN player resources: user_project_n_wins (all projects), - 244 rows
+        // IN gateway resources: games_reward_fund_share, project_n_win_cost (all projects) - 244 rows
+        // TODO: decrease games_reward_fund_share in table
+        // FOR by reward_history and collects all reward for user
+
+        // user_reward = sum_n (project_n_win_cost * user_project_n_wins)
+        // games_reward_fund_share = games_reward_fund_share - user_reward
+
+        // 1. Check burn_period and burn all rewards (cleanup history table)
+        // 1.1 Retransfer burned rewards into accumulative_fund
+        // 2. Check history tables for rewards
+        // 3. Pay all rewards to player (royalty??)
+
+        // Send event GetRewardEvent into player res
     }
 
     // Getters
@@ -626,11 +824,11 @@ module gateway::gateway {
         };
 
         let player_info = borrow_global<PlayerInfo>(player_addr);
-        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
+        if (!table::contains(&player_info.game_sessions, project_id)) {
             return GAME_STATUS_NULL
         };
 
-        let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let game_session_status = table::borrow(&player_info.game_sessions, project_id);
         return *game_session_status
     }
 
@@ -641,11 +839,11 @@ module gateway::gateway {
         };
 
         let player_info = borrow_global<PlayerInfo>(player_addr);
-        if (!table_with_length::contains(&player_info.game_sessions, project_id)) {
+        if (!table::contains(&player_info.game_sessions, project_id)) {
             return false
         };
 
-        let game_session_status = table_with_length::borrow(&player_info.game_sessions, project_id);
+        let game_session_status = table::borrow(&player_info.game_sessions, project_id);
         if (*game_session_status == GAME_STATUS_NONE) {
             return true
         };
@@ -655,27 +853,39 @@ module gateway::gateway {
     // Utils.
     const DECIMALS: u64 = 100000000;
 
-    // TODO: fix this
-    // /// Calculate reward amount for user.
-    // public fun calc_reward_amount(
-    //     games_reward_fund_amount: u64,
-    //     freezed_users: u64,
-    //     reward_coefficient: u64,
-    //     gpass_daily_reward: u64,
-    //     gpass_daily_reward_coefficient: u64,
-    // ): u64 {
-    //     let reward_amount = 0;
-    //     if (freezed_users != 0) {
-    //         reward_amount = games_reward_fund_amount / (freezed_users * reward_coefficient);
-    //     };
+    // TODO: unit tests for this function
+    public fun calculate_project_win_cost(
+        games_in_frame: &GamesInFrame,
+        games_reward_fund_share: u64,
+        total_gpass_spent: u64
+    ): u64 {
+        let gpass_spent_128_dec: u128 = (games_in_frame.gpass_spent as u128) * (DECIMALS as u128);
+        let total_gpass_spent_128: u128 = (total_gpass_spent as u128);
+        let games_reward_fund_share_128_dec = (games_reward_fund_share as u128);
+        let wins_u128_dec = (games_in_frame.wins as u128) * (DECIMALS as u128);
 
-    //     let gpass_daily_reward_amount = gpass_daily_reward * DECIMALS;
-    //     if (reward_amount > gpass_daily_reward_amount) {
-    //         reward_amount = gpass_daily_reward_amount / gpass_daily_reward_coefficient;
-    //     };
+        let project_all_rewards_share: u128 = games_reward_fund_share_128_dec * (gpass_spent_128_dec / total_gpass_spent_128);
+        let project_win_cost = project_all_rewards_share / wins_u128_dec;
 
-    //     reward_amount
-    // }
+        return (project_win_cost as u64)
+    }
+
+    // TODO: unit tests
+    public fun erase_history(history: &mut vector<FrameHistory>, histoty_length: u64, project_counter: u64) {
+        let i = 0;
+        while (i < histoty_length) {
+            let elem = vector::borrow_mut<FrameHistory>(history, i);
+            elem.games_reward_fund_share = 0;
+            let j = 0;
+            while (j < project_counter) {
+                if (table::contains(&elem.projects_win_cost, j)) {
+                    table::remove(&mut elem.projects_win_cost, j);
+                };
+                j = j + 1;
+            };
+            i = i + 1;
+        };
+    }
 
     /// Get the percent value.
     public fun calc_royalty_amount(amount: u64, royalty: u8): u64 {
