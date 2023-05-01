@@ -66,6 +66,9 @@ module gateway::gateway {
         histoty_length: u64,
         // <project_id, RewardsHistory>
         time_frames_history: vector<FrameHistory>,
+
+        // <project_id, reward>
+        contributor_rewards: Table<u64, u64>,
     }
 
     struct GamesInFrame has drop, store {
@@ -243,6 +246,8 @@ module gateway::gateway {
                 last_burn: now,
                 histoty_length: histoty_length,
                 time_frames_history: time_frames_history,
+
+                contributor_rewards: table::new<u64, u64>(),
             };
             move_to(gateway, gateway_info);
         };
@@ -447,8 +452,6 @@ module gateway::gateway {
 
         // 20% to contributors
         let games_reward_fund_contributors_share = games_reward_fund_share / 100 * 20;
-        // TODO: every contributor share calc and save it into table
-
         games_reward_fund_share = games_reward_fund_share - games_reward_fund_contributors_share;
 
         let total_wins = 0;
@@ -464,6 +467,18 @@ module gateway::gateway {
 
             let win_cost_val = table::borrow_mut(&mut frame_history_entry.projects_win_cost, project_id);
             *win_cost_val = project_win_cost;
+
+            let contributor_reward = calculate_contributor_reward(
+                games_reward_fund_contributors_share,
+                games_in_frame.gpass_spent,
+                gateway_info.total_gpass_spent_in_frame
+            );
+            if (table::contains(&gateway_info.contributor_rewards, project_id)) {
+                let contributor_reward_val = table::borrow_mut(&mut gateway_info.contributor_rewards, project_id);
+                *contributor_reward_val = *contributor_reward_val + contributor_reward;
+            } else {
+                table::add(&mut gateway_info.contributor_rewards, project_id, contributor_reward);
+            };
 
             total_wins = total_wins + games_in_frame.wins;
             project_id = project_id + 1;
@@ -934,7 +949,7 @@ module gateway::gateway {
     public fun calculate_project_win_cost(
         games_in_frame: &GamesInFrame,
         games_reward_fund_share: u64,
-        total_gpass_spent: u64
+        total_gpass_spent: u64,
     ): u64 {
         let gpass_spent_128_dec: u128 = (games_in_frame.gpass_spent as u128) * (DECIMALS as u128);
         let total_gpass_spent_128: u128 = (total_gpass_spent as u128);
@@ -947,7 +962,21 @@ module gateway::gateway {
         return (project_win_cost as u64)
     }
 
-    // TODO: unit tests
+    // TODO: unit tests for this function
+    public fun calculate_contributor_reward(
+        games_reward_fund_contributors_share: u64,
+        gpass_spent: u64,
+        total_gpass_spent: u64,
+    ): u64 {
+        let gpass_spent_128_dec: u128 = (gpass_spent as u128) * (DECIMALS as u128);
+        let total_gpass_spent_128: u128 = (total_gpass_spent as u128);
+        let contributors_share_128_dec: u128 = (games_reward_fund_contributors_share as u128);
+
+        let contributor_reward: u128 = contributors_share_128_dec * (gpass_spent_128_dec / total_gpass_spent_128);
+        let contributor_reward: u128 = contributor_reward / (DECIMALS as u128);
+        return (contributor_reward as u64)
+    }
+
     public fun erase_history(history: &mut vector<FrameHistory>, histoty_length: u64, project_counter: u64) {
         let i = 0;
         while (i < histoty_length) {
@@ -964,7 +993,6 @@ module gateway::gateway {
         };
     }
 
-    // TODO: unit tests
     public fun erase_player_history(history: &mut vector<PlayerFrameHistory>, histoty_length: u64, project_counter: u64) {
         let i = 0;
         while (i < histoty_length) {
@@ -984,4 +1012,30 @@ module gateway::gateway {
     public fun calc_royalty_amount(amount: u64, royalty: u8): u64 {
         amount / 100 * (royalty as u64)
     }
+
+    // TODO: need drop for vector entry
+    // #[test_only]
+    // public entry fun erase_history_test() {
+    //     let history = vector::empty<FrameHistory>();
+    //     let histoty_length = 244;
+    //     let i = 0;
+    //     while (i < histoty_length) {
+    //         vector::push_back(&mut history, FrameHistory {
+    //             games_reward_fund_share: 0,
+    //             projects_win_cost: table::new<u64, u64>(),
+    //         });
+    //         i = i + 1;
+    //     };
+    //     assert!(vector::length(&history) == histoty_length, ERR_NOT_INITIALIZED);
+
+    //     erase_history(&mut history, histoty_length, 1);
+
+    //     let i = 0;
+    //     while (i < histoty_length) {
+    //         let history_entry = vector::borrow_mut(&mut history, i);
+    //         table:: history_entry
+    //         vector::pop_back(&mut history);
+    //         i = i + 1;
+    //     };
+    // }
 }
