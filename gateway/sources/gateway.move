@@ -89,6 +89,8 @@ module gateway::gateway {
         is_blocked: bool,
         is_removed: bool,
         gpass_cost: u64,
+
+        get_contributor_reward_events: EventHandle<GetContributorRewardEvent>,
     }
 
     struct PlayerInfo has key, store {
@@ -199,6 +201,11 @@ module gateway::gateway {
         date: u64,
     }
 
+    struct GetContributorRewardEvent has drop, store {
+        reward: u64,
+        date: u64,
+    }
+
     public entry fun initialize(gateway: &signer,
         accumulative_fund_addr: address,
         reward_coefficient: u64,
@@ -236,7 +243,7 @@ module gateway::gateway {
                 project_counter: 0,
 
                 time_frame: time_frame,
-                last_distribute: now, // TODO: now?
+                last_distribute: now,
                 games_in_frame: table::new<u64, GamesInFrame>(),
                 total_gpass_spent_in_frame: 0,
 
@@ -497,7 +504,7 @@ module gateway::gateway {
             },
         );
 
-        gateway_info.last_distribute = now; // TODO: now?
+        gateway_info.last_distribute = gateway_info.last_distribute + (history_index * gateway_info.time_frame);
         gateway_info.total_gpass_spent_in_frame = 0;
     }
 
@@ -539,6 +546,7 @@ module gateway::gateway {
                 is_blocked: false,
                 is_removed: false,
                 gpass_cost: gpass_cost,
+                get_contributor_reward_events: account::new_event_handle<GetContributorRewardEvent>(contributor),
             });
         };
 
@@ -821,7 +829,6 @@ module gateway::gateway {
             history_index = history_index + 1;
         };
 
-        // TODO: royalty??
         let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, total_reward);
         coin::deposit(player_addr, reward_coins);
 
@@ -836,13 +843,40 @@ module gateway::gateway {
         );
     }
 
-    // TODO:
-    // public entry fun get_contributor_reward(contributor: &signer,
-    //     gateway_addr: address,
-    // ) {
-    //     // TODO: check projects exists and not blocked
-    //     // TODO: use saved history to get contributor rewards
-    // }
+    public entry fun get_contributor_reward(contributor: &signer,
+        gateway_addr: address,
+    ) acquires GatewayInfo, ProjectInfo {
+        assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
+
+        let contributor_addr = signer::address_of(contributor);
+        assert!(exists<ProjectInfo>(contributor_addr), ERR_NOT_INITIALIZED);
+
+        let project_info = borrow_global_mut<ProjectInfo>(contributor_addr);
+        assert!(project_info.is_blocked == false, ERR_ALREADY_BLOCKED);
+        assert!(project_info.is_removed == false, ERR_ALREADY_REMOVED);
+
+        let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
+
+        assert!(table::contains(&gateway_info.contributor_rewards, project_info.id), ERR_NO_REWARD);
+        let reward = table::borrow_mut(&mut gateway_info.contributor_rewards, project_info.id);
+        assert!(*reward != 0, ERR_NO_REWARD);
+
+        let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, *reward);
+        coin::deposit(contributor_addr, reward_coins);
+
+        let now = timestamp::now_seconds();
+        event::emit_event<GetContributorRewardEvent>(
+            &mut project_info.get_contributor_reward_events,
+            GetContributorRewardEvent {
+                reward: *reward,
+                date: now,
+            }
+        );
+
+        *reward = 0;
+    }
 
     // Getters
 
