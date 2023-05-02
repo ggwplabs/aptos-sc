@@ -78,7 +78,6 @@ module gateway::gateway {
 
     struct FrameHistory has store {
         games_reward_fund_share: u64,
-        // todo: share for contributors?
         // <project_id, win_cost>
         projects_win_cost: Table<u64, u64>,
     }
@@ -173,7 +172,6 @@ module gateway::gateway {
         contributors_share: u64,
         total_wins: u64,
         total_gpass_spent: u64,
-        // TODO: more fields?
         date: u64,
     }
 
@@ -436,8 +434,11 @@ module gateway::gateway {
         if (since_burn >= gateway_info.burn_period) {
             let spent_frames = since_burn / gateway_info.time_frame;
             assert!(spent_frames >= gateway_info.histoty_length, ERR_INVALID_ERASE_HISTORY);
-            // TODO: before erase need send money to accumulative fund
-            erase_history(&mut gateway_info.time_frames_history, gateway_info.histoty_length, gateway_info.project_counter);
+            // Erase history and send unspent reward into accumulative fund
+            let unspent_reward = erase_history(&mut gateway_info.time_frames_history, gateway_info.histoty_length, gateway_info.project_counter);
+            let unspent_reward_coins = coin::extract(&mut gateway_info.games_reward_fund, unspent_reward);
+            coin::deposit(gateway_info.accumulative_fund, unspent_reward_coins);
+
             gateway_info.last_burn = gateway_info.last_burn + (spent_frames * gateway_info.time_frame);
         };
 
@@ -445,7 +446,6 @@ module gateway::gateway {
         let history_index = since_burn / gateway_info.time_frame;
         let frame_history_entry = vector::borrow_mut<FrameHistory>(&mut gateway_info.time_frames_history, history_index);
 
-        // TODO: write into history table
         let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
         let games_reward_fund_share = games_reward_fund_amount / gateway_info.reward_coefficient;
         frame_history_entry.games_reward_fund_share = games_reward_fund_share;
@@ -993,10 +993,12 @@ module gateway::gateway {
         return (contributor_reward as u64)
     }
 
-    public fun erase_history(history: &mut vector<FrameHistory>, histoty_length: u64, project_counter: u64) {
+    public fun erase_history(history: &mut vector<FrameHistory>, histoty_length: u64, project_counter: u64): u64 {
+        let unspent_reward = 0;
         let i = 0;
         while (i < histoty_length) {
             let elem = vector::borrow_mut<FrameHistory>(history, i);
+            unspent_reward = unspent_reward + elem.games_reward_fund_share;
             elem.games_reward_fund_share = 0;
             let j = 0;
             while (j < project_counter) {
@@ -1007,6 +1009,8 @@ module gateway::gateway {
             };
             i = i + 1;
         };
+
+        return unspent_reward
     }
 
     public fun erase_player_history(history: &mut vector<PlayerFrameHistory>, histoty_length: u64, project_counter: u64) {
