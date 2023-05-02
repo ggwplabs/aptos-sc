@@ -943,37 +943,53 @@ module gateway::gateway {
     }
 
     // Utils.
-    const DECIMALS: u64 = 100000000;
+    const PRECISION: u256 = 1000000000000;
 
-    // TODO: unit tests for this function
     public fun calculate_project_win_cost(
         games_in_frame: &GamesInFrame,
         games_reward_fund_share: u64,
         total_gpass_spent: u64,
     ): u64 {
-        let gpass_spent_128_dec: u128 = (games_in_frame.gpass_spent as u128) * (DECIMALS as u128);
-        let total_gpass_spent_128: u128 = (total_gpass_spent as u128);
-        let games_reward_fund_share_128_dec = (games_reward_fund_share as u128);
-        let wins_u128_dec = (games_in_frame.wins as u128) * (DECIMALS as u128);
+        if (total_gpass_spent == 0) {
+            return 0
+        };
+        if (games_in_frame.gpass_spent == 0) {
+            return 0
+        };
+        if (games_in_frame.wins == 0) {
+            return 0
+        };
 
-        let project_all_rewards_share: u128 = games_reward_fund_share_128_dec * (gpass_spent_128_dec / total_gpass_spent_128);
-        let project_win_cost = project_all_rewards_share / wins_u128_dec;
+        let gpass_spent_256_prec: u256 = (games_in_frame.gpass_spent as u256) * PRECISION;
+        let total_gpass_spent_256: u256 = (total_gpass_spent as u256);
+        let games_reward_fund_share_256_dec_prec: u256 = (games_reward_fund_share as u256) * PRECISION;
+        let wins_256_prec: u256 = (games_in_frame.wins as u256) * PRECISION;
+
+        let project_all_rewards_share: u256 = games_reward_fund_share_256_dec_prec * (gpass_spent_256_prec / total_gpass_spent_256);
+        let project_win_cost: u256 = project_all_rewards_share / wins_256_prec / PRECISION;
 
         return (project_win_cost as u64)
     }
 
-    // TODO: unit tests for this function
     public fun calculate_contributor_reward(
         games_reward_fund_contributors_share: u64,
         gpass_spent: u64,
         total_gpass_spent: u64,
     ): u64 {
-        let gpass_spent_128_dec: u128 = (gpass_spent as u128) * (DECIMALS as u128);
-        let total_gpass_spent_128: u128 = (total_gpass_spent as u128);
-        let contributors_share_128_dec: u128 = (games_reward_fund_contributors_share as u128);
+        if (total_gpass_spent == 0) {
+            return 0
+        };
+        if (gpass_spent == 0) {
+            return 0
+        };
 
-        let contributor_reward: u128 = contributors_share_128_dec * (gpass_spent_128_dec / total_gpass_spent_128);
-        let contributor_reward: u128 = contributor_reward / (DECIMALS as u128);
+        let gpass_spent_256_prec: u256 = (gpass_spent as u256) * PRECISION;
+        let total_gpass_spent_256: u256 = (total_gpass_spent as u256);
+        let contributors_share_256_dec: u256 = (games_reward_fund_contributors_share as u256);
+
+        let contributor_reward: u256 = contributors_share_256_dec * (gpass_spent_256_prec / total_gpass_spent_256);
+        let contributor_reward: u256 = contributor_reward / PRECISION;
+
         return (contributor_reward as u64)
     }
 
@@ -1013,29 +1029,76 @@ module gateway::gateway {
         amount / 100 * (royalty as u64)
     }
 
-    // TODO: need drop for vector entry
-    // #[test_only]
-    // public entry fun erase_history_test() {
-    //     let history = vector::empty<FrameHistory>();
-    //     let histoty_length = 244;
-    //     let i = 0;
-    //     while (i < histoty_length) {
-    //         vector::push_back(&mut history, FrameHistory {
-    //             games_reward_fund_share: 0,
-    //             projects_win_cost: table::new<u64, u64>(),
-    //         });
-    //         i = i + 1;
-    //     };
-    //     assert!(vector::length(&history) == histoty_length, ERR_NOT_INITIALIZED);
+    #[test_only]
+    const DECIMALS: u64 = 100000000;
 
-    //     erase_history(&mut history, histoty_length, 1);
+    #[test]
+    public entry fun calculate_project_win_cost_test() {
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 0, wins: 0 }, 0, 0);
+        assert!(wc == 0, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 0, wins: 0 }, 0, 10);
+        assert!(wc == 0, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 0, wins: 0 }, 0, 10);
+        assert!(wc == 0, 1);
 
-    //     let i = 0;
-    //     while (i < histoty_length) {
-    //         let history_entry = vector::borrow_mut(&mut history, i);
-    //         table:: history_entry
-    //         vector::pop_back(&mut history);
-    //         i = i + 1;
-    //     };
-    // }
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 1);
+        assert!(wc == 10 * DECIMALS, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 2);
+        assert!(wc == 5 * DECIMALS, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 3);
+        assert!(wc == 333333333, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 5);
+        assert!(wc == 2 * DECIMALS, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 6);
+        assert!(wc == 166666666, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1, }, 100 * DECIMALS, 6);
+        assert!(wc == 1666666666, 1);
+
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 20);
+        assert!(wc == 50000000, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 200);
+        assert!(wc == 5000000, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 10 * DECIMALS, 2000);
+        assert!(wc == 500000, 1);
+
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1, }, 300000000 * DECIMALS, 1);
+        assert!(wc == 300000000 * DECIMALS, 1);
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1, }, 300000000 * DECIMALS, 6);
+        assert!(wc == 4999999999980000, 1);
+
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 10, wins: 5, }, 300000000 * DECIMALS, 16);
+        assert!(wc == 37500000 * DECIMALS, 1);
+
+        let wc = calculate_project_win_cost(&GamesInFrame { gpass_spent: 1, wins: 1 }, 300000000 * DECIMALS, 1000000);
+        assert!(wc == 300 * DECIMALS, 1);
+    }
+
+    #[test]
+    public entry fun calculate_contributor_reward_test() {
+        let cr = calculate_contributor_reward(10 * DECIMALS, 0, 1);
+        assert!(cr == 0, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 0, 0);
+        assert!(cr == 0, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 1, 1);
+        assert!(cr == 10 * DECIMALS, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 1, 2);
+        assert!(cr == 5 * DECIMALS, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 1, 5);
+        assert!(cr == 2 * DECIMALS, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 1, 10);
+        assert!(cr == 1 * DECIMALS, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 1, 100);
+        assert!(cr == 10000000, 1);
+        let cr = calculate_contributor_reward(10 * DECIMALS, 10, 100);
+        assert!(cr == 100000000, 1);
+
+        let cr = calculate_contributor_reward(10 * DECIMALS, 13, 123);
+        assert!(cr == 105691056, 1);
+
+        let cr = calculate_contributor_reward(300000000 * DECIMALS, 13, 123);
+        assert!(cr == 3170731707300000, 1);
+
+        let cr = calculate_contributor_reward(300000000 * DECIMALS, 28, 1000000);
+        assert!(cr == 840000000000, 1);
+    }
 }
