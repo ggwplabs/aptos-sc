@@ -124,6 +124,7 @@ module gateway::gateway {
         new_player_events: EventHandle<NewPlayerEvent>,
 
         calculate_rewards_events: EventHandle<CalculateRewardsEvent>,
+        burn_rewards_events: EventHandle<BurnRewardsEvent>,
     }
 
     struct DepositEvent has drop, store {
@@ -174,6 +175,11 @@ module gateway::gateway {
         contributors_share: u64,
         total_wins: u64,
         total_gpass_spent: u64,
+        date: u64,
+    }
+
+    struct BurnRewardsEvent has drop, store {
+        unspent_reward: u64,
         date: u64,
     }
 
@@ -272,6 +278,7 @@ module gateway::gateway {
                 new_player_events: account::new_event_handle<NewPlayerEvent>(gateway),
 
                 calculate_rewards_events: account::new_event_handle<CalculateRewardsEvent>(gateway),
+                burn_rewards_events: account::new_event_handle<BurnRewardsEvent>(gateway),
             });
         };
     }
@@ -441,12 +448,25 @@ module gateway::gateway {
         if (since_burn >= gateway_info.burn_period) {
             let spent_frames = since_burn / gateway_info.time_frame;
             assert!(spent_frames >= gateway_info.histoty_length, ERR_INVALID_ERASE_HISTORY);
+
             // Erase history and send unspent reward into accumulative fund
             let unspent_reward = erase_history(&mut gateway_info.time_frames_history, gateway_info.histoty_length, gateway_info.project_counter);
             let unspent_reward_coins = coin::extract(&mut gateway_info.games_reward_fund, unspent_reward);
             coin::deposit(gateway_info.accumulative_fund, unspent_reward_coins);
 
             gateway_info.last_burn = gateway_info.last_burn + (spent_frames * gateway_info.time_frame);
+            gateway_info.last_distribute = gateway_info.last_distribute + (spent_frames * gateway_info.time_frame);
+            gateway_info.total_gpass_spent_in_frame = 0;
+
+            event::emit_event<BurnRewardsEvent>(
+                &mut events.burn_rewards_events,
+                BurnRewardsEvent {
+                    unspent_reward: unspent_reward,
+                    date: now
+                },
+            );
+
+            return
         };
 
         let since_burn = now - gateway_info.last_burn;
