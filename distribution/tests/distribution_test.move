@@ -98,9 +98,10 @@ module accumulative_fund::distribution_test {
         create_account_for_test(team_fund_addr);
 
         let reward_coefficient = 20000;
-        let gpass_daily_reward_coefficient = 10;
         let royalty = 8;
-        gateway::initialize(games_reward_fund, ac_fund_addr, reward_coefficient, gpass_daily_reward_coefficient, royalty);
+        let time_frame = 30 * 60;
+        let burn_period = time_frame * 4;
+        gateway::initialize(games_reward_fund, ac_fund_addr, reward_coefficient, royalty, time_frame, burn_period);
 
         let games_reward_fund_share = 80;
         let company_fund_share = 9;
