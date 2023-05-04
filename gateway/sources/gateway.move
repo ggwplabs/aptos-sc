@@ -507,6 +507,9 @@ module gateway::gateway {
             let games_in_frame = table::borrow(&gateway_info.games_in_frame, project_id);
             let project_win_cost = calculate_project_win_cost(games_in_frame, games_reward_fund_share, gateway_info.total_gpass_spent_in_frame);
 
+            if (table::contains(&frame_history_entry.projects_win_cost, project_id) == false) {
+                table::add(&mut frame_history_entry.projects_win_cost, project_id, 0);
+            };
             let win_cost_val = table::borrow_mut(&mut frame_history_entry.projects_win_cost, project_id);
             *win_cost_val = project_win_cost;
 
@@ -656,7 +659,7 @@ module gateway::gateway {
 
             let time_frames_history = vector::empty<PlayerFrameHistory>();
             let i = 0;
-            while (i < gateway_info.history_length + 1) { // TODO: remove temp elem
+            while (i < gateway_info.history_length) {
                 vector::push_back(&mut time_frames_history, PlayerFrameHistory {
                     projects_wins: table::new<u64, u64>(),
                 });
@@ -757,14 +760,6 @@ module gateway::gateway {
             player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
         };
 
-        // TODO: remove
-        // let since_last_get_reward = now - player_info.last_get_reward;
-        // if (since_last_get_reward >= gateway_info.burn_period) {
-        //     let spent_frames = since_last_get_reward / gateway_info.time_frame;
-        //     erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
-        //     player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
-        // };
-
         let since = now - gateway_info.last_burn;
         let current_time_frame = since / gateway_info.time_frame;
         let history_index = current_time_frame + 1;
@@ -839,7 +834,7 @@ module gateway::gateway {
             let spent_frames = since_last_get_reward / gateway_info.time_frame;
             erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
             player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
-            return //TODO: return?? Test users history burned correct
+            return
         };
 
         // If user plays in this burn_period - last_get_reward is updated
@@ -864,10 +859,11 @@ module gateway::gateway {
                 };
 
                 let project_wins = table::borrow_mut(&mut frame_player_history_entry.projects_wins, project_id);
-                total_wins = total_wins + *project_wins;
-                let project_win_cost = *table::borrow(&frame_history.projects_win_cost, project_id);
 
-                let reward_in_project = project_win_cost * *project_wins;
+                total_wins = total_wins + *project_wins;
+                let project_win_cost = table::borrow(&frame_history.projects_win_cost, project_id);
+
+                let reward_in_project = *project_win_cost * *project_wins;
                 frame_history.games_reward_fund_share = frame_history.games_reward_fund_share - reward_in_project;
                 total_reward = total_reward + reward_in_project;
 
@@ -879,7 +875,12 @@ module gateway::gateway {
         };
 
         if (total_reward != 0) {
-            let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, total_reward);
+            // Transfer royalty amount into accumulative fund
+            let royalty_amount = calc_royalty_amount(total_reward, gateway_info.royalty);
+            let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
+            coin::deposit(gateway_info.accumulative_fund, royalty_coins);
+
+            let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, total_reward - royalty_amount);
             coin::deposit(player_addr, reward_coins);
         };
 
@@ -917,7 +918,12 @@ module gateway::gateway {
         let reward = table::borrow_mut(&mut gateway_info.contributor_rewards, project_info.id);
         assert!(*reward != 0, ERR_NO_REWARD);
 
-        let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, *reward);
+        // Transfer royalty amount into accumulative fund
+        let royalty_amount = calc_royalty_amount(*reward, gateway_info.royalty);
+        let royalty_coins = coin::extract(&mut gateway_info.games_reward_fund, royalty_amount);
+        coin::deposit(gateway_info.accumulative_fund, royalty_coins);
+
+        let reward_coins = coin::extract(&mut gateway_info.games_reward_fund, *reward - royalty_amount);
         coin::deposit(contributor_addr, reward_coins);
 
         let now = timestamp::now_seconds();
