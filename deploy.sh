@@ -1,5 +1,5 @@
 REGENERATE_KEYS="OFF"
-SCRIPT="OFF"
+SCRIPT="ON"
 TESTING_SCRIPT="OFF"
 
 AIRDROP_DEVNET="OFF"
@@ -53,6 +53,7 @@ DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
 
 GATEWAY="0x$profiles_gateway_account"
 GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
+GATEWAY_GAMES_REWARD_FUND_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
 
 GAMES_REWARD_FUND="0x$profiles_gateway_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
@@ -96,13 +97,13 @@ if [[ $SCRIPT == "ON" ]]
 then
     # Sctiprt
     echo "Script"
-    # DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
-    # games_reward_fund="$GAMES_REWARD_FUND"
-    # staking_fund="$STAKING_FUND"
-    # company_fund="$COMPANY_FUND"
-    # team_fund="$TEAM_FUND"
-    # ARGS="address:$games_reward_fund address:$staking_fund address:$company_fund address:$team_fund"
-    # aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
+    DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
+    games_reward_fund="$GAMES_REWARD_FUND"
+    company_fund="$COMPANY_FUND"
+    team_fund="$TEAM_FUND"
+    ARGS="address:$games_reward_fund address:$company_fund address:$team_fund"
+    echo "$ARGS"
+    aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
 
     # aptos move run --function-id $GGWP_REGISTER --profile fighting_contributor --assume-yes
     # ARGS="u64:2728811381400 address:$FIGHTING_CONTRIBUTOR"
@@ -170,20 +171,20 @@ echo "------------------------------"
 
 if [[ $PUBLISH == "ON" ]]
 then
-    # echo "Deploy ggwp_coin.."
-    # aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
+    echo "Deploy ggwp_coin.."
+    aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
 
-    # echo "Deploy faucet.."
-    # aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
+    echo "Deploy faucet.."
+    aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
 
-    # echo "Deploy ggwp_core.."
-    # aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
+    echo "Deploy ggwp_core.."
+    aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
 
-    # echo "Deploy accumulative fund distribution.."
-    # aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
+    echo "Deploy accumulative fund distribution.."
+    aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
 
-    # echo "Deploy gateway sc.."
-    # aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
+    echo "Deploy gateway sc.."
+    aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -264,8 +265,16 @@ then
     echo "Initialize gateway"
     accumulative_fund=$ACCUMULATIVE_FUND
     reward_coefficient=20000
-    gpass_daily_reward_coefficient=10
     royalty=8
-    ARGS="address:$accumulative_fund u64:$reward_coefficient u64:$gpass_daily_reward_coefficient u8:$royalty"
+    time_frame=1800 # 30 * 60
+    burn_period=7200 # 2 * 60 * 60
+    ARGS="address:$accumulative_fund u64:$reward_coefficient u8:$royalty u64:$time_frame u64:$burn_period"
     aptos move run --function-id $GATEWAY_INITIALIZE --args $ARGS --profile gateway --assume-yes
+
+    echo "Mint GGWP tokens (300_000_000) to games reward fund"
+    ARGS="u64:30000000000000000 address:$FAUCET"
+    aptos move run --function-id $GGWP_MINT_TO --args $ARGS --profile coin --assume-yes
+
+    ARGS="address:$GATEWAY u64:30000000000000000"
+    aptos move run --function-id $GATEWAY_GAMES_REWARD_FUND_DEPOSIT --args $ARGS --profile faucet --assume-yes
 fi

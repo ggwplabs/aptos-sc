@@ -96,13 +96,18 @@ module gateway::gateway {
     struct PlayerInfo has key, store {
         is_blocked: bool,
         last_get_reward: u64,
-        // <project_id, game_session_status>
-        game_sessions: Table<u64, u8>,
+        // <project_id, (id, tatus)>
+        game_sessions: Table<u64, GameSessionInfo>,
         time_frames_history: vector<PlayerFrameHistory>,
 
         start_game_events: EventHandle<StartGameEvent>,
         finalize_game_events: EventHandle<FinalizeGameEvent>,
         get_reward_events: EventHandle<GetRewardEvent>,
+    }
+
+    struct GameSessionInfo has store {
+        id: u64,
+        status: u8,
     }
 
     struct PlayerFrameHistory has store {
@@ -669,7 +674,7 @@ module gateway::gateway {
             move_to(player, PlayerInfo {
                 is_blocked: false,
                 last_get_reward: last_get_reward,
-                game_sessions: table::new<u64, u8>(),
+                game_sessions: table::new<u64, GameSessionInfo>(),
                 time_frames_history: time_frames_history,
                 start_game_events: account::new_event_handle<StartGameEvent>(player),
                 finalize_game_events: account::new_event_handle<FinalizeGameEvent>(player),
@@ -693,8 +698,8 @@ module gateway::gateway {
 
         // Check already opened sessions in this project
         if (table::contains(&player_info.game_sessions, project_id)) {
-            let game_session_status = table::borrow(&player_info.game_sessions, project_id);
-            assert!(*game_session_status == GAME_STATUS_NULL, ERR_GAME_SESSION_ALREADY_STARTED);
+            let game_session_status = table::borrow(&player_info.game_sessions, project_id).status;
+            assert!(game_session_status == GAME_STATUS_NULL, ERR_GAME_SESSION_ALREADY_STARTED);
         };
 
         // Burn gpass_cost GPASS from user wallet
@@ -704,13 +709,17 @@ module gateway::gateway {
         if (!table::contains(&player_info.game_sessions, project_id)) {
             table::add(&mut player_info.game_sessions,
                 project_id,
-                GAME_STATUS_NULL,
+                GameSessionInfo {
+                    status: GAME_STATUS_NULL,
+                    id: 0,
+                },
             );
         };
 
         // Update game status to NONE - session created
-        let game_session_status = table::borrow_mut(&mut player_info.game_sessions, project_id);
-        *game_session_status = GAME_STATUS_NONE;
+        let game_session_info = table::borrow_mut(&mut player_info.game_sessions, project_id);
+        game_session_info.status = GAME_STATUS_NONE;
+        game_session_info.id = game_session_info.id + 1;
 
         event::emit_event<StartGameEvent>(
             &mut player_info.start_game_events,
@@ -745,9 +754,9 @@ module gateway::gateway {
 
         // Check game session status
         assert!(table::contains(&player_info.game_sessions, project_id), ERR_MISSING_GAME_SESSION);
-        let game_session_status = table::borrow_mut(&mut player_info.game_sessions, project_id);
-        assert!(*game_session_status == GAME_STATUS_NONE, ERR_GAME_SESSION_ALREADY_FINALIZED);
-        *game_session_status = GAME_STATUS_NULL;
+        let game_session_info = table::borrow_mut(&mut player_info.game_sessions, project_id);
+        assert!(game_session_info.status == GAME_STATUS_NONE, ERR_GAME_SESSION_ALREADY_FINALIZED);
+        game_session_info.status = GAME_STATUS_NULL;
 
         let now = timestamp::now_seconds();
         let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
@@ -1014,8 +1023,23 @@ module gateway::gateway {
             return GAME_STATUS_NULL
         };
 
-        let game_session_status = table::borrow(&player_info.game_sessions, project_id);
-        return *game_session_status
+        let game_session_info = table::borrow(&player_info.game_sessions, project_id);
+        return game_session_info.status
+    }
+
+    #[view]
+    public fun get_session_id(player_addr: address, project_id: u64): u64 acquires PlayerInfo {
+        if (exists<PlayerInfo>(player_addr) == false) {
+            return 0
+        };
+
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        if (!table::contains(&player_info.game_sessions, project_id)) {
+            return 0
+        };
+
+        let game_session_info = table::borrow(&player_info.game_sessions, project_id);
+        return game_session_info.id
     }
 
     #[view]
@@ -1029,11 +1053,29 @@ module gateway::gateway {
             return false
         };
 
-        let game_session_status = table::borrow(&player_info.game_sessions, project_id);
-        if (*game_session_status == GAME_STATUS_NONE) {
+        let game_session_info = table::borrow(&player_info.game_sessions, project_id);
+        if (game_session_info.status == GAME_STATUS_NONE) {
             return true
         };
         return false
+    }
+
+    #[view]
+    public fun get_open_session(player_addr: address, project_id: u64): u64 acquires PlayerInfo {
+        if (exists<PlayerInfo>(player_addr) == false) {
+            return 0
+        };
+
+        let player_info = borrow_global<PlayerInfo>(player_addr);
+        if (!table::contains(&player_info.game_sessions, project_id)) {
+            return 0
+        };
+
+        let game_session_info = table::borrow(&player_info.game_sessions, project_id);
+        if (game_session_info.status == GAME_STATUS_NONE) {
+            return game_session_info.id
+        };
+        return 0
     }
 
     // Utils.
