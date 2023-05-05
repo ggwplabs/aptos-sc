@@ -1,3 +1,4 @@
+
 # path: /home/snapper/src/distribution_script_testnet or /home/snapper/src/distribution_script
 # bin: /usr/local/bin/aptos
 
@@ -29,21 +30,21 @@ config_path=".aptos/config.yaml"
 parse_yaml $config_path > keys.sh
 source keys.sh
 
-DISTRIBUTION="0x$profiles_distribution_account"
-DISTRIBUTION_DISTRIBUTE="$DISTRIBUTION::distribution::distribute"
+GATEWAY="0x$profiles_gateway_account"
+GATEWAY_CALCULATE_TIME_FRAME="$GATEWAY::gateway::calculate_time_frame"
 
 echo "------------------------------"
-echo "APTOS accumulative fund balance before:"
+echo "APTOS gateway balance before:"
 
-distribution_initial_balance=$(get_balance distribution)
-echo "balance: $distribution_initial_balance"
+gateway_initial_balance=$(get_balance distribution)
+echo "balance: $gateway_initial_balance"
 echo "------------------------------"
 
-/usr/local/bin/aptos move run --function-id $DISTRIBUTION_DISTRIBUTE --profile distribution --assume-yes
+/usr/local/bin/aptos move run --function-id $GATEWAY_CALCULATE_TIME_FRAME --profile gateway --assume-yes
 
 echo "------------------------------"
-echo "Distribution APTOS cost:"
+echo "Time frame calculation APTOS cost:"
 
-distribution_balance=$(get_balance distribution)
-let distribution_cost=$distribution_initial_balance-$distribution_balance
-echo "cost: $distribution_cost"
+gateway_balance=$(get_balance distribution)
+let time_frame_calc_cost=$gateway_initial_balance-$gateway_balance
+echo "cost: $time_frame_calc_cost"
