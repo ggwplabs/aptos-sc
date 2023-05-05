@@ -197,11 +197,13 @@ module gateway::gateway {
 
     struct StartGameEvent has drop, store {
         project_id: u64,
+        session_id: u64,
         date: u64,
     }
 
     struct FinalizeGameEvent has drop, store {
         project_id: u64,
+        session_id: u64,
         status: u8,
         time_frame: u64,
         date: u64,
@@ -725,6 +727,7 @@ module gateway::gateway {
             &mut player_info.start_game_events,
             StartGameEvent {
                 project_id: project_id,
+                session_id: game_session_info.id,
                 date: now,
             }
         );
@@ -815,6 +818,7 @@ module gateway::gateway {
             &mut player_info.finalize_game_events,
             FinalizeGameEvent {
                 project_id: project_id,
+                session_id: game_session_info.id,
                 status: status,
                 time_frame: history_index,
                 date: now,
