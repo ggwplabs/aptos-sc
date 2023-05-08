@@ -40,27 +40,90 @@ module gateway::gateway_test {
     // CONST
     const MAX_PROJECT_NAME_LEN: u64 = 128;
 
-    // TODO: distribute_rewards test with many players and many projects
+    #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor1 = @0x2222, contributor2 = @0x22221, player1 = @0x1111, player2 = @0x11112)]
+    public entry fun skip_calculate_time_frame_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor1: &signer, contributor2: &signer, player1: &signer, player2: &signer) {
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, _contributor1_addr, _contributor2_addr, player1_addr, player2_addr)
+            = fixture_setup2(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor1, contributor2, player1, player2);
 
-    // #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor1 = @0x2222, contributor2 = @0x22221, player1 = @0x1111, player2 = @0x11112)]
-    // public entry fun games_with_rewards_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor1: &signer, contributor2: &signer, player1: &signer, player2: &signer) {
-    //     let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor1_addr, contributor2_addr, player1_addr, player2_addr)
-    //         = fixture_setup2(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor1, contributor2, player1, player2);
+        coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player1_addr);
+        coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player2_addr);
 
-    //     coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player1_addr);
-    //     coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player2_addr);
+        gpass::add_reward_table_row(ggwp_core, 500 * 100000000, 5);
+        gpass::add_reward_table_row(ggwp_core, 1000 * 100000000, 10);
+        gpass::add_reward_table_row(ggwp_core, 1500 * 100000000, 15);
 
-    //     gpass::add_reward_table_row(ggwp_core, 500 * 100000000, 5);
-    //     gpass::add_reward_table_row(ggwp_core, 1000 * 100000000, 10);
-    //     gpass::add_reward_table_row(ggwp_core, 1500 * 100000000, 15);
+        let reward_coefficient = 20000;
+        let royalty = 8;
+        let time_frame = 30 * 60;
+        let burn_period = time_frame * 244;
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, royalty, time_frame, burn_period);
 
-    //     gpass::freeze_tokens(player1, ggwp_core_addr, 1000 * 100000000);
-    //     assert!(gpass::get_balance(player1_addr) == 10, 1);
-    //     assert!(coin::balance<GGWPCoin>(player1_addr) == 10000 * 100000000, 1);
-    //     gpass::freeze_tokens(player2, ggwp_core_addr, 1000 * 100000000);
-    //     assert!(gpass::get_balance(player2_addr) == 10, 1);
-    //     assert!(coin::balance<GGWPCoin>(player2_addr) == 10000 * 100000000, 1);
-    // }
+        coin::ggwp::mint_to(ggwp_coin, 300000000 * 100000000, ac_fund_addr);
+        gateway::games_reward_fund_deposit(accumulative_fund, gateway_addr, 300000000 * 100000000);
+
+        let gpass_cost = 1;
+        let project_name = string::utf8(b"test project game 1");
+        gateway::sign_up(contributor1, gateway_addr, project_name, gpass_cost);
+        let gpass_cost = 2;
+        let project_name = string::utf8(b"test project game 2");
+        gateway::sign_up(contributor2, gateway_addr, project_name, gpass_cost);
+
+        coin::ggwp::mint_to(ggwp_coin, 1080 * 100000000, player1_addr);
+        coin::ggwp::mint_to(ggwp_coin, 1080 * 100000000, player2_addr);
+        gpass::freeze_tokens(player1, ggwp_core_addr, 1000 * 100000000);
+        gpass::freeze_tokens(player2, ggwp_core_addr, 1000 * 100000000);
+
+        let now = timestamp::now_seconds();
+        now = now + time_frame;
+        timestamp::update_global_time_for_test_secs(now); // frame = 1
+        now = now + time_frame;
+        timestamp::update_global_time_for_test_secs(now); // frame = 2
+        now = now + time_frame;
+        timestamp::update_global_time_for_test_secs(now); // frame = 3
+        now = now + time_frame;
+        timestamp::update_global_time_for_test_secs(now); // frame = 0
+        now = now + time_frame;
+        timestamp::update_global_time_for_test_secs(now); // frame = 1
+        gateway::calculate_time_frame(gateway);
+    }
+
+    #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor1 = @0x2222, contributor2 = @0x22221, player1 = @0x1111, player2 = @0x11112)]
+    public entry fun get_reward_before_first_finalize_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor1: &signer, contributor2: &signer, player1: &signer, player2: &signer) {
+        let (gateway_addr, ggwp_core_addr, ac_fund_addr, contributor1_addr, _contributor2_addr, player1_addr, player2_addr)
+            = fixture_setup2(gateway, ggwp_coin, ggwp_core, accumulative_fund, contributor1, contributor2, player1, player2);
+
+        coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player1_addr);
+        coin::ggwp::mint_to(ggwp_coin, 11080 * 100000000, player2_addr);
+
+        gpass::add_reward_table_row(ggwp_core, 500 * 100000000, 5);
+        gpass::add_reward_table_row(ggwp_core, 1000 * 100000000, 10);
+        gpass::add_reward_table_row(ggwp_core, 1500 * 100000000, 15);
+
+        let reward_coefficient = 20000;
+        let royalty = 8;
+        let time_frame = 30 * 60;
+        let burn_period = time_frame * 244;
+        gateway::initialize(gateway, ac_fund_addr, reward_coefficient, royalty, time_frame, burn_period);
+
+        coin::ggwp::mint_to(ggwp_coin, 300000000 * 100000000, ac_fund_addr);
+        gateway::games_reward_fund_deposit(accumulative_fund, gateway_addr, 300000000 * 100000000);
+
+        let gpass_cost = 1;
+        let project_name = string::utf8(b"test project game 1");
+        gateway::sign_up(contributor1, gateway_addr, project_name, gpass_cost);
+        let gpass_cost = 2;
+        let project_name = string::utf8(b"test project game 2");
+        gateway::sign_up(contributor2, gateway_addr, project_name, gpass_cost);
+
+        coin::ggwp::mint_to(ggwp_coin, 1080 * 100000000, player1_addr);
+        coin::ggwp::mint_to(ggwp_coin, 1080 * 100000000, player2_addr);
+
+        gpass::freeze_tokens(player1, ggwp_core_addr, 1000 * 100000000);
+        gpass::freeze_tokens(player2, ggwp_core_addr, 1000 * 100000000);
+
+        gateway::start_game(player1, gateway_addr, ggwp_core_addr, contributor1_addr, 1);
+        gateway::get_player_reward(player1, gateway_addr);
+    }
 
     #[test(gateway = @gateway, ggwp_coin = @coin, ggwp_core = @ggwp_core, accumulative_fund = @0x11223344, contributor1 = @0x2222, contributor2 = @0x22221, player1 = @0x1111, player2 = @0x11112)]
     public entry fun long_time_burn_period_test(gateway: &signer, ggwp_coin: &signer, ggwp_core: &signer, accumulative_fund: &signer, contributor1: &signer, contributor2: &signer, player1: &signer, player2: &signer) {

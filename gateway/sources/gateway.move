@@ -545,7 +545,7 @@ module gateway::gateway {
                 total_gpass_spent: gateway_info.total_gpass_spent_in_frame,
                 total_wins: total_wins,
                 last_calculate: gateway_info.last_calculate,
-                date: now
+                date: now,
             },
         );
 
