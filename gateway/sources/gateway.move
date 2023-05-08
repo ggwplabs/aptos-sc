@@ -908,7 +908,7 @@ module gateway::gateway {
             }
         );
 
-        player_info.last_get_reward = player_info.last_get_reward + (current_index * gateway_info.time_frame);
+        player_info.last_get_reward = player_info.last_get_reward + ((current_index - start_index) * gateway_info.time_frame);
     }
 
     public entry fun get_contributor_reward(contributor: &signer,
