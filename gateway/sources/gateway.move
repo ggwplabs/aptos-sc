@@ -841,21 +841,26 @@ module gateway::gateway {
         let now = timestamp::now_seconds();
         let gateway_info = borrow_global_mut<GatewayInfo>(gateway_addr);
 
+        let since = now - gateway_info.last_burn;
+        let current_index = since / gateway_info.time_frame;
+
         // Check user if not plays long time - erase his history and return
         if (player_info.last_get_reward < gateway_info.last_burn) {
             let since_last_get_reward = now - player_info.last_get_reward;
             let spent_frames = since_last_get_reward / gateway_info.time_frame;
-            erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
-            player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
-            return
+            if (current_index == 0) {
+                erase_player_history_except_zero(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
+                player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
+            } else {
+                erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
+                player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
+                return
+            };
         };
 
         // If user plays in this burn_period - last_get_reward is updated
         let since = player_info.last_get_reward - gateway_info.last_burn;
         let start_index = since / gateway_info.time_frame;
-
-        let since = now - gateway_info.last_burn;
-        let current_index = since / gateway_info.time_frame;
 
         let total_reward = 0;
         let total_wins = 0;
@@ -877,6 +882,11 @@ module gateway::gateway {
                 let project_win_cost = table::borrow(&frame_history.projects_win_cost, project_id);
 
                 let reward_in_project = *project_win_cost * *project_wins;
+                // TODO: check this (calculations check)
+                if (reward_in_project >= frame_history.games_reward_fund_share) {
+                    reward_in_project = frame_history.games_reward_fund_share;
+                };
+                // TODO:
                 frame_history.games_reward_fund_share = frame_history.games_reward_fund_share - reward_in_project;
                 total_reward = total_reward + reward_in_project;
 
@@ -1082,6 +1092,31 @@ module gateway::gateway {
         return 0
     }
 
+    #[view]
+    public fun get_history_length(gateway_addr: address): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        return gateway_info.history_length
+    }
+
+    #[view]
+    public fun get_current_time_frame(gateway_addr: address): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let now = timestamp::now_seconds();
+        let since_burn = now - gateway_info.last_burn;
+        let current_time_frame = since_burn / gateway_info.time_frame;
+        return current_time_frame
+    }
+
+    #[view]
+    public fun get_fund_share(gateway_addr: address, history_index: u64): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let frame_history_entry = vector::borrow<FrameHistory>(&gateway_info.time_frames_history, history_index);
+        return frame_history_entry.games_reward_fund_share
+    }
+
     // Utils.
     const PRECISION: u256 = 1000000000000;
 
@@ -1150,6 +1185,21 @@ module gateway::gateway {
 
     public fun erase_player_history(history: &mut vector<PlayerFrameHistory>, history_length: u64, project_counter: u64) {
         let i = 0;
+        while (i < history_length) {
+            let elem = vector::borrow_mut<PlayerFrameHistory>(history, i);
+            let j = 1;
+            while (j < project_counter) {
+                if (table::contains(&elem.projects_wins, j)) {
+                    table::remove(&mut elem.projects_wins, j);
+                };
+                j = j + 1;
+            };
+            i = i + 1;
+        };
+    }
+
+    public fun erase_player_history_except_zero(history: &mut vector<PlayerFrameHistory>, history_length: u64, project_counter: u64) {
+        let i = 1;
         while (i < history_length) {
             let elem = vector::borrow_mut<PlayerFrameHistory>(history, i);
             let j = 1;
