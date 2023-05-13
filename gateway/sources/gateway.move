@@ -497,11 +497,10 @@ module gateway::gateway {
         let frame_history_entry = vector::borrow_mut<FrameHistory>(&mut gateway_info.time_frames_history, history_index);
         let games_reward_fund_amount = coin::value<GGWPCoin>(&gateway_info.games_reward_fund);
         let games_reward_fund_share = games_reward_fund_amount / gateway_info.reward_coefficient;
-        frame_history_entry.games_reward_fund_share = games_reward_fund_share;
-
         // 20% to contributors
         let games_reward_fund_contributors_share = games_reward_fund_share / 100 * 20;
         games_reward_fund_share = games_reward_fund_share - games_reward_fund_contributors_share;
+        frame_history_entry.games_reward_fund_share = games_reward_fund_share;
 
         let total_wins = 0;
         let project_id = 1;
@@ -881,12 +880,8 @@ module gateway::gateway {
                 total_wins = total_wins + *project_wins;
                 let project_win_cost = table::borrow(&frame_history.projects_win_cost, project_id);
 
-                let reward_in_project = *project_win_cost * *project_wins;
                 // TODO: check this (calculations check)
-                if (reward_in_project >= frame_history.games_reward_fund_share) {
-                    reward_in_project = frame_history.games_reward_fund_share;
-                };
-                // TODO:
+                let reward_in_project = *project_win_cost * *project_wins;
                 frame_history.games_reward_fund_share = frame_history.games_reward_fund_share - reward_in_project;
                 total_reward = total_reward + reward_in_project;
 
@@ -1110,6 +1105,37 @@ module gateway::gateway {
     }
 
     #[view]
+    public fun get_total_gpass_spent_in_frame(gateway_addr: address): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        return gateway_info.total_gpass_spent_in_frame
+    }
+
+    #[view]
+    public fun get_gpass_spent_in_current_frame(gateway_addr: address, project_id: u64): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let gpass_spent = 0;
+        if (table::contains(&gateway_info.games_in_frame, project_id) == true) {
+            let games_in_frame_val = table::borrow(&gateway_info.games_in_frame, project_id);
+            gpass_spent = games_in_frame_val.gpass_spent;
+        };
+        return gpass_spent
+    }
+
+    #[view]
+    public fun get_wins_in_current_frame(gateway_addr: address, project_id: u64): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let wins = 0;
+        if (table::contains(&gateway_info.games_in_frame, project_id) == true) {
+            let games_in_frame_val = table::borrow(&gateway_info.games_in_frame, project_id);
+            wins = games_in_frame_val.wins;
+        };
+        return wins
+    }
+
+    #[view]
     public fun get_fund_share(gateway_addr: address, history_index: u64): u64 acquires GatewayInfo {
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
@@ -1127,6 +1153,17 @@ module gateway::gateway {
             win_cost = *table::borrow(&frame_history_entry.projects_win_cost, project_id);
         };
         return win_cost
+    }
+
+    #[view]
+     public fun get_current_contributor_reward(gateway_addr: address, project_id: u64): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let reward = 0;
+        if (table::contains(&gateway_info.contributor_rewards, project_id) == true) {
+            reward = *table::borrow(&gateway_info.contributor_rewards, project_id);
+        };
+        return reward
     }
 
     // Utils.
