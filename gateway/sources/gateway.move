@@ -1117,6 +1117,18 @@ module gateway::gateway {
         return frame_history_entry.games_reward_fund_share
     }
 
+    #[view]
+    public fun get_win_cost(gateway_addr: address, history_index: u64, project_id: u64): u64 acquires GatewayInfo {
+        assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
+        let gateway_info = borrow_global<GatewayInfo>(gateway_addr);
+        let frame_history_entry = vector::borrow<FrameHistory>(&gateway_info.time_frames_history, history_index);
+        let win_cost = 0;
+        if (table::contains(&frame_history_entry.projects_win_cost, project_id) == true) {
+            win_cost = *table::borrow(&frame_history_entry.projects_win_cost, project_id);
+        };
+        return win_cost
+    }
+
     // Utils.
     const PRECISION: u256 = 1000000000000;
 
