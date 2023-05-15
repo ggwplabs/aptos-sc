@@ -645,6 +645,7 @@ module gateway::gateway {
         project_id: u64,
     ) acquires GatewayInfo, ProjectInfo, PlayerInfo, Events {
         assert!(gateway_addr == @gateway, error::permission_denied(ERR_NOT_AUTHORIZED));
+        assert!(ggwp_core_addr == @ggwp_core, error::permission_denied(ERR_NOT_AUTHORIZED));
         assert!(exists<GatewayInfo>(gateway_addr), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(gateway_addr), ERR_NOT_INITIALIZED);
 
@@ -767,7 +768,7 @@ module gateway::gateway {
         if (player_info.last_get_reward < gateway_info.last_burn) {
             let since_last_get_reward = now - player_info.last_get_reward;
             let spent_frames = since_last_get_reward / gateway_info.time_frame;
-            erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
+            erase_player_history_skipped(&mut player_info.time_frames_history, 0, gateway_info.history_length, gateway_info.project_counter);
             player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
         };
 
@@ -848,10 +849,10 @@ module gateway::gateway {
             let since_last_get_reward = now - player_info.last_get_reward;
             let spent_frames = since_last_get_reward / gateway_info.time_frame;
             if (current_index == 0) {
-                erase_player_history_except_zero(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
+                erase_player_history_skipped(&mut player_info.time_frames_history, 1, gateway_info.history_length, gateway_info.project_counter);
                 player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
             } else {
-                erase_player_history(&mut player_info.time_frames_history, gateway_info.history_length, gateway_info.project_counter);
+                erase_player_history_skipped(&mut player_info.time_frames_history, 0, gateway_info.history_length, gateway_info.project_counter);
                 player_info.last_get_reward = player_info.last_get_reward + (spent_frames * gateway_info.time_frame);
                 return
             };
@@ -880,7 +881,6 @@ module gateway::gateway {
                 total_wins = total_wins + *project_wins;
                 let project_win_cost = table::borrow(&frame_history.projects_win_cost, project_id);
 
-                // TODO: check this (calculations check)
                 let reward_in_project = *project_win_cost * *project_wins;
                 frame_history.games_reward_fund_share = frame_history.games_reward_fund_share - reward_in_project;
                 total_reward = total_reward + reward_in_project;
@@ -1232,23 +1232,8 @@ module gateway::gateway {
         return unspent
     }
 
-    public fun erase_player_history(history: &mut vector<PlayerFrameHistory>, history_length: u64, project_counter: u64) {
-        let i = 0;
-        while (i < history_length) {
-            let elem = vector::borrow_mut<PlayerFrameHistory>(history, i);
-            let j = 1;
-            while (j < project_counter) {
-                if (table::contains(&elem.projects_wins, j)) {
-                    table::remove(&mut elem.projects_wins, j);
-                };
-                j = j + 1;
-            };
-            i = i + 1;
-        };
-    }
-
-    public fun erase_player_history_except_zero(history: &mut vector<PlayerFrameHistory>, history_length: u64, project_counter: u64) {
-        let i = 1;
+    public fun erase_player_history_skipped(history: &mut vector<PlayerFrameHistory>, skip: u64, history_length: u64, project_counter: u64) {
+        let i = 0 + skip;
         while (i < history_length) {
             let elem = vector::borrow_mut<PlayerFrameHistory>(history, i);
             let j = 1;
