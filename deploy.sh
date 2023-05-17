@@ -97,13 +97,18 @@ if [[ $SCRIPT == "ON" ]]
 then
     # Sctiprt
     echo "Script"
-    DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
-    games_reward_fund="$GAMES_REWARD_FUND"
-    company_fund="$COMPANY_FUND"
-    team_fund="$TEAM_FUND"
-    ARGS="address:$games_reward_fund address:$company_fund address:$team_fund"
-    echo "$ARGS"
-    aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
+
+    # GATEWAY_GET_PLAYER_REWARD="$GATEWAY::gateway::get_player_reward"
+    # ARGS="address:$GATEWAY"
+    # aptos move run --function-id $GATEWAY_GET_PLAYER_REWARD --args $ARGS --profile player --assume-yes
+
+    # DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
+    # games_reward_fund="$GAMES_REWARD_FUND"
+    # company_fund="$COMPANY_FUND"
+    # team_fund="$TEAM_FUND"
+    # ARGS="address:$games_reward_fund address:$company_fund address:$team_fund"
+    # echo "$ARGS"
+    # aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
 
     # aptos move run --function-id $GGWP_REGISTER --profile fighting_contributor --assume-yes
     # ARGS="u64:2728811381400 address:$FIGHTING_CONTRIBUTOR"
@@ -118,11 +123,11 @@ then
     # aptos move run --function-id $GATEWAY_SIGN_UP --args $ARGS --profile fighting_contributor --assume-yes
 
     # GATEWAY_START_GAME="$GATEWAY::gateway::start_game"
-    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:$PROJECT_ID"
+    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1"
     # aptos move run --function-id $GATEWAY_START_GAME --args $ARGS --profile player --assume-yes
 
     # GATEWAY_FINALIZE_GAME="$GATEWAY::gateway::finalize_game"
-    # ARGS="address:$GATEWAY address:$GGWP_CORE address:$FIGHTING_CONTRIBUTOR u64:1 u64:2 u8:1"
+    # ARGS="address:$GATEWAY address:$FIGHTING_CONTRIBUTOR u64:1 u8:1"
     # aptos move run --function-id $GATEWAY_FINALIZE_GAME --args $ARGS --profile player --assume-yes
 
     echo "Script end"
@@ -147,26 +152,26 @@ fi
 echo "------------------------------"
 echo "Initial balances:"
 
-coin_initial_balance=$(get_balance coin)
-echo "coin: $coin_initial_balance"
+# coin_initial_balance=$(get_balance coin)
+# echo "coin: $coin_initial_balance"
 
-faucet_initial_balance=$(get_balance faucet)
-echo "faucet: $faucet_initial_balance"
+# faucet_initial_balance=$(get_balance faucet)
+# echo "faucet: $faucet_initial_balance"
 
-core_initial_balance=$(get_balance core)
-echo "core: $core_initial_balance"
+# core_initial_balance=$(get_balance core)
+# echo "core: $core_initial_balance"
 
-distribution_initial_balance=$(get_balance distribution)
-echo "distribution: $distribution_initial_balance"
+# distribution_initial_balance=$(get_balance distribution)
+# echo "distribution: $distribution_initial_balance"
 
-gateway_initial_balance=$(get_balance gateway)
-echo "gateway: $gateway_initial_balance"
+# gateway_initial_balance=$(get_balance gateway)
+# echo "gateway: $gateway_initial_balance"
 
-company_fund_initial_balance=$(get_balance company_fund)
-echo "company_fund: $company_fund_initial_balance"
+# company_fund_initial_balance=$(get_balance company_fund)
+# echo "company_fund: $company_fund_initial_balance"
 
-team_fund_initial_balance=$(get_balance team_fund)
-echo "team_fund: $team_fund_initial_balance"
+# team_fund_initial_balance=$(get_balance team_fund)
+# echo "team_fund: $team_fund_initial_balance"
 echo "------------------------------"
 
 if [[ $PUBLISH == "ON" ]]
@@ -262,19 +267,23 @@ fi
 
 if [[ $GATEWAY_INIT == "ON" ]]
 then
+    echo "Publish gateway"
+    aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
+
     echo "Initialize gateway"
     accumulative_fund=$ACCUMULATIVE_FUND
     reward_coefficient=20000
     royalty=8
-    time_frame=1800 # 30 * 60
-    burn_period=7200 # 2 * 60 * 60
+    time_frame=10800 # 3 * 60 * 60
+    burn_period=2592000 # 30 * 24 * 60 * 60
     ARGS="address:$accumulative_fund u64:$reward_coefficient u8:$royalty u64:$time_frame u64:$burn_period"
     aptos move run --function-id $GATEWAY_INITIALIZE --args $ARGS --profile gateway --assume-yes
 
-    echo "Mint GGWP tokens (300_000_000) to games reward fund"
+    echo "Mint GGWP tokens (300_000_000) to games reward fund (through faucet)"
     ARGS="u64:30000000000000000 address:$FAUCET"
     aptos move run --function-id $GGWP_MINT_TO --args $ARGS --profile coin --assume-yes
 
+    echo "Deposit GGWP into games reward fund"
     ARGS="address:$GATEWAY u64:30000000000000000"
     aptos move run --function-id $GATEWAY_GAMES_REWARD_FUND_DEPOSIT --args $ARGS --profile faucet --assume-yes
 fi
