@@ -9,4 +9,4 @@ subdir = 'aptos-move/framework/aptos-framework'
 ggwpcoin = { local = "../ggwp_coin" }
 ggwp_core = { local = "../core" }
 [addresses]
-gateway = "0x98d4272168a2c546f17d880627b9f790043df3de83d9d44d770a986d59ec4046"
+gateway = "0x7c8503c09425698dd9e63fcbd2704178fd7898bfaf1a4ab09e877135bb461eae"
