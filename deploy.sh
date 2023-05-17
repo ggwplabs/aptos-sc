@@ -53,8 +53,9 @@ DISTRIBUTION_INITIALIZE="$ACCUMULATIVE_FUND::distribution::initialize"
 
 GATEWAY="0x$profiles_gateway_account"
 GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
+GATEWAY_GAMES_REWARD_FUND_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
 
-PLAY_TO_EARN_FUND="0x$profiles_gateway_account"
+GAMES_REWARD_FUND="0x$profiles_gateway_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"
 
@@ -68,6 +69,7 @@ update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_gateway "$GATEWAY" "gateway/Move.toml"
+echo "Keys in Move.toml updated"
 
 if [[ $TESTING_SCRIPT == "ON" ]]
 then
@@ -95,19 +97,19 @@ if [[ $SCRIPT == "ON" ]]
 then
     # Sctiprt
     echo "Script"
-    # DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
-    # play_to_earn_fund="$PLAY_TO_EARN_FUND"
-    # staking_fund="$STAKING_FUND"
-    # company_fund="$COMPANY_FUND"
-    # team_fund="$TEAM_FUND"
-    # ARGS="address:$play_to_earn_fund address:$staking_fund address:$company_fund address:$team_fund"
-    # aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
+    DISTRIBUTION_UPDATE_FUNDS="$ACCUMULATIVE_FUND::distribution::update_funds"
+    games_reward_fund="$GAMES_REWARD_FUND"
+    company_fund="$COMPANY_FUND"
+    team_fund="$TEAM_FUND"
+    ARGS="address:$games_reward_fund address:$company_fund address:$team_fund"
+    echo "$ARGS"
+    aptos move run --function-id $DISTRIBUTION_UPDATE_FUNDS --args $ARGS --profile distribution --assume-yes
 
     # aptos move run --function-id $GGWP_REGISTER --profile fighting_contributor --assume-yes
     # ARGS="u64:2728811381400 address:$FIGHTING_CONTRIBUTOR"
     # aptos move run --function-id $GGWP_MINT_TO --args $ARGS --profile coin --assume-yes
 
-    # GATEWAY_DEPOSIT="$GATEWAY::gateway::play_to_earn_fund_deposit"
+    # GATEWAY_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
     # ARGS="address:$GATEWAY u64:2728811381400"
     # aptos move run --function-id $GATEWAY_DEPOSIT --args $ARGS --profile fighting_contributor --assume-yes
 
@@ -169,20 +171,20 @@ echo "------------------------------"
 
 if [[ $PUBLISH == "ON" ]]
 then
-    # echo "Deploy ggwp_coin.."
-    # aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
+    echo "Deploy ggwp_coin.."
+    aptos move publish --profile coin --package-dir ggwp_coin --bytecode-version 6 --assume-yes
 
-    # echo "Deploy faucet.."
-    # aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
+    echo "Deploy faucet.."
+    aptos move publish --profile faucet --package-dir faucet --bytecode-version 6 --assume-yes
 
-    # echo "Deploy ggwp_core.."
-    # aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
+    echo "Deploy ggwp_core.."
+    aptos move publish --profile core --package-dir core --bytecode-version 6 --assume-yes
 
-    # echo "Deploy accumulative fund distribution.."
-    # aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
+    echo "Deploy accumulative fund distribution.."
+    aptos move publish --profile distribution --package-dir distribution --bytecode-version 6 --assume-yes
 
-    # echo "Deploy gateway sc.."
-    # aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
+    echo "Deploy gateway sc.."
+    aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
 fi
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -248,13 +250,13 @@ fi
 if [[ $DISTRIBUTION_INIT == "ON" ]]
 then
     echo "Initialize distribution"
-    play_to_earn_fund="$PLAY_TO_EARN_FUND"
-    play_to_earn_fund_share=45
+    games_reward_fund="$GAMES_REWARD_FUND"
+    games_reward_fund_share=45
     company_fund="$COMPANY_FUND"
     company_fund_share=5
     team_fund="$TEAM_FUND"
     team_fund_share=10
-    ARGS="address:$play_to_earn_fund u8:$play_to_earn_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
+    ARGS="address:$games_reward_fund u8:$games_reward_fund_share address:$company_fund u8:$company_fund_share address:$team_fund u8:$team_fund_share"
     aptos move run --function-id $DISTRIBUTION_INITIALIZE --args $ARGS --profile distribution --assume-yes
 fi
 
@@ -263,8 +265,16 @@ then
     echo "Initialize gateway"
     accumulative_fund=$ACCUMULATIVE_FUND
     reward_coefficient=20000
-    gpass_daily_reward_coefficient=10
     royalty=8
-    ARGS="address:$accumulative_fund u64:$reward_coefficient u64:$gpass_daily_reward_coefficient u8:$royalty"
+    time_frame=1800 # 30 * 60
+    burn_period=7200 # 2 * 60 * 60
+    ARGS="address:$accumulative_fund u64:$reward_coefficient u8:$royalty u64:$time_frame u64:$burn_period"
     aptos move run --function-id $GATEWAY_INITIALIZE --args $ARGS --profile gateway --assume-yes
+
+    echo "Mint GGWP tokens (300_000_000) to games reward fund"
+    ARGS="u64:30000000000000000 address:$FAUCET"
+    aptos move run --function-id $GGWP_MINT_TO --args $ARGS --profile coin --assume-yes
+
+    ARGS="address:$GATEWAY u64:30000000000000000"
+    aptos move run --function-id $GATEWAY_GAMES_REWARD_FUND_DEPOSIT --args $ARGS --profile faucet --assume-yes
 fi

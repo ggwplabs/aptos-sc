@@ -134,7 +134,7 @@ module accumulative_fund::distribution {
         // Transfer GGWP to games reward fund (gateway smart contract)
         let games_reward_fund_amount =
             calc_share_amount(amount, distribution_info.games_reward_fund_share);
-        gateway::play_to_earn_fund_deposit(accumulative_fund, distribution_info.games_reward_fund, games_reward_fund_amount);
+        gateway::games_reward_fund_deposit(accumulative_fund, distribution_info.games_reward_fund, games_reward_fund_amount);
 
         // Transfer GGWP to company fund
         let company_fund_amount =

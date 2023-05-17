@@ -20,7 +20,7 @@ config_path=".aptos/config.yaml"
 parse_yaml $config_path > keys.sh
 source keys.sh
 
-DISTRIBUTION="0x$profiles_distribution_account"
-DISTRIBUTION_DISTRIBUTE="$DISTRIBUTION::distribution::distribute"
+GATEWAY="0x$profiles_gateway_account"
+GATEWAY_CALCULATE_TIME_FRAME="$GATEWAY::gateway::calculate_time_frame"
 
-aptos move run --function-id $DISTRIBUTION_DISTRIBUTE --profile distribution --assume-yes
+aptos move run --function-id $GATEWAY_CALCULATE_TIME_FRAME --profile gateway --assume-yes
