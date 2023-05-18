@@ -1,4 +1,5 @@
 module nft_market::nft_market {
+    use std::bcs;
     use std::signer;
     use std::error;
     use std::vector;
@@ -8,7 +9,7 @@ module nft_market::nft_market {
     use aptos_token::token::{Self, TokenId, create_token_id_raw};
     use aptos_token::token_transfers;
     use aptos_framework::timestamp;
-    use aptos_framework::account;
+    use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::event::{Self, EventHandle};
 
     use gateway::gateway;
@@ -25,14 +26,8 @@ module nft_market::nft_market {
 
     struct MarketInfo has key, store {
         accumulative_fund: address,
-        listing_offers: vector<ListingOfferData>,
+        signer_cap: SignerCapability,
         listing: Table<address, vector<ListingData>>,
-    }
-
-    struct ListingOfferData has store, drop {
-        seller: address,
-        token_id: TokenId,
-        price: u64,
     }
 
     struct ListingData has store, drop {
@@ -67,6 +62,7 @@ module nft_market::nft_market {
 
     public entry fun initialize(nft_market: &signer,
         accumulative_fund_addr: address,
+        seed: String,
     ) {
         let nft_market_addr = signer::address_of(nft_market);
         assert!(nft_market_addr == @nft_market, error::permission_denied(ERR_NOT_AUTHORIZED));
@@ -76,9 +72,10 @@ module nft_market::nft_market {
         };
 
         if (!exists<MarketInfo>(nft_market_addr)) {
+            let (_, res_cap) = account::create_resource_account(nft_market, bcs::to_bytes(&seed));
             let market_info = MarketInfo {
                 accumulative_fund: accumulative_fund_addr,
-                listing_offers: vector::empty<ListingOfferData>(),
+                signer_cap: res_cap,
                 listing: table::new<address, vector<ListingData>>(),
             };
             move_to(nft_market, market_info);
@@ -106,36 +103,6 @@ module nft_market::nft_market {
         market_info.accumulative_fund = accumulative_fund_addr;
     }
 
-    public entry fun listing_claim(nft_market: &signer,
-        seller_addr: address,
-        creator_addr: address,
-        collection: String,
-        token_name: String,
-    ) acquires MarketInfo {
-        let nft_market_addr = signer::address_of(nft_market);
-        assert!(nft_market_addr == @nft_market, error::permission_denied(ERR_NOT_AUTHORIZED));
-        assert!(exists<MarketInfo>(nft_market_addr), ERR_NOT_INITIALIZED);
-        assert!(exists<Events>(nft_market_addr), ERR_NOT_INITIALIZED);
-
-        let market_info = borrow_global_mut<MarketInfo>(nft_market_addr);
-        assert!(vector::is_empty(&market_info.listing_offers) == false, ERR_NOTHING_TO_CLAIM);
-
-        while (vector::is_empty(&market_info.listing_offers) == false) {
-            let offer_data = vector::swap_remove(&mut market_info.listing_offers, 0);
-            token_transfers::claim(nft_market, offer_data.seller, offer_data.token_id);
-
-            if (table::contains(&market_info.listing, offer_data.seller) == false) {
-                table::add(&mut market_info.listing, offer_data.seller, vector::empty<ListingData>());
-            };
-
-            let listing_data = table::borrow_mut(&mut market_info.listing, offer_data.seller);
-            vector::push_back(listing_data, ListingData {
-                token_id: offer_data.token_id,
-                price: offer_data.price,
-            });
-        };
-    }
-
     // Public API
 
     public entry fun listing(seller: &signer,
@@ -155,11 +122,9 @@ module nft_market::nft_market {
         let market_info = borrow_global_mut<MarketInfo>(@nft_market);
         let token_id = create_token_id_raw(creator_addr, collection, token_name, 0);
         token_transfers::offer(seller, @nft_market, token_id, 1);
-        vector::push_back(&mut market_info.listing_offers, ListingOfferData {
-            seller: seller_addr,
-            token_id: token_id,
-            price: price,
-        });
+
+        let res_signer = account::create_signer_with_capability(&market_info.signer_cap);
+        token_transfers::claim(&res_signer, seller_addr, token_id);
 
         let events = borrow_global_mut<Events>(@nft_market);
         let now = timestamp::now_seconds();
@@ -190,7 +155,7 @@ module nft_market::nft_market {
     // ) acquires MarketInfo {
     //     // TODO: check token is in listing
 
-    //     // Direct transfer to buyer?
+    //     // get GGWP and send offer to buyer
     // }
 
     // // Views
