@@ -102,8 +102,13 @@ version = '1.0.0'
 git = 'https://github.com/aptos-labs/aptos-core.git'
 rev = 'testnet'
 subdir = 'aptos-move/framework/aptos-framework'
+[dependencies.AptosToken]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/framework/aptos-token'
 [dependencies]
-ggwpcoin = { local = "../ggwp_coin" }
+ggwpcoin = { local = \"../ggwp_coin\" }
+gateway = { local = \"../gateway\" }
 [addresses]
 nft_market = \"$1\""
     echo "$file_content" > $2
