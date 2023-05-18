@@ -12,6 +12,8 @@ GATEWAY_INIT="OFF"
 FUNDS_REGISTER="OFF"
 DISTRIBUTION_INIT="OFF"
 
+NFT_MARKET_INIT="OFF"
+
 config_path=".aptos/config.yaml"
 
 if [[ $REGENERATE_KEYS == "ON" ]]
@@ -28,6 +30,7 @@ then
     yes "" | aptos init --network testnet --profile gateway --assume-yes
     yes "" | aptos init --network testnet --profile fighting_contributor --assume-yes
     yes "" | aptos init --network testnet --profile player --assume-yes
+    yes "" | aptos init --network testnet --profile nft_market --assume-yes
 fi
 
 source utils.sh
@@ -55,6 +58,8 @@ GATEWAY="0x$profiles_gateway_account"
 GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
 GATEWAY_GAMES_REWARD_FUND_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
 
+NFT_MARKET="0x$profiles_nft_market_account"
+
 GAMES_REWARD_FUND="0x$profiles_gateway_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
 TEAM_FUND="0x$profiles_team_fund_account"
@@ -69,6 +74,7 @@ update_distribution "$ACCUMULATIVE_FUND" "distribution/Move.toml"
 update_faucet "$FAUCET" "faucet/Move.toml"
 update_ggwp_coin "$GGWP" "ggwp_coin/Move.toml"
 update_gateway "$GATEWAY" "gateway/Move.toml"
+update_nft_market "$NFT_MARKET" "nft_market/Move.toml"
 echo "Keys in Move.toml updated"
 
 if [[ $TESTING_SCRIPT == "ON" ]]

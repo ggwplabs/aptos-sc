@@ -1,0 +1,11 @@
+[package]
+name = 'nft_market'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/framework/aptos-framework'
+[dependencies]
+ggwpcoin = { local = ../ggwp_coin }
+[addresses]
+nft_market = "0xc3046ce1f9bfe6738b1418aa2abc7e37875b9f37e3b4c4e7ca6d9603f469ec19"

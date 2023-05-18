@@ -93,3 +93,18 @@ subdir = 'aptos-move/framework/aptos-framework'
 coin = \"$1\""
     echo "$file_content" > $2
 }
+
+function update_nft_market {
+    local file_content="[package]
+name = 'nft_market'
+version = '1.0.0'
+[dependencies.AptosFramework]
+git = 'https://github.com/aptos-labs/aptos-core.git'
+rev = 'testnet'
+subdir = 'aptos-move/framework/aptos-framework'
+[dependencies]
+ggwpcoin = { local = "../ggwp_coin" }
+[addresses]
+nft_market = \"$1\""
+    echo "$file_content" > $2
+}
