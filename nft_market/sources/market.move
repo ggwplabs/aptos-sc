@@ -108,6 +108,7 @@ module nft_market::nft_market {
 
     public entry fun update_params(nft_market: &signer,
         accumulative_fund_addr: address,
+        royalty: u8,
     ) acquires MarketInfo {
         let nft_market_addr = signer::address_of(nft_market);
         assert!(nft_market_addr == @nft_market, error::permission_denied(ERR_NOT_AUTHORIZED));
@@ -115,6 +116,7 @@ module nft_market::nft_market {
 
         let market_info = borrow_global_mut<MarketInfo>(nft_market_addr);
         market_info.accumulative_fund = accumulative_fund_addr;
+        market_info.royalty = royalty;
     }
 
     // Public API
@@ -129,8 +131,8 @@ module nft_market::nft_market {
         assert!(exists<MarketInfo>(@nft_market), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(@nft_market), ERR_NOT_INITIALIZED);
         assert!(price != 0, ERR_INVALID_PRICE);
-        assert!(gateway::get_project_is_blocked(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
-        assert!(gateway::get_project_is_removed(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_blocked(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_removed(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
         assert!(validate_name(&collection), ERR_INVALID_COLLECTION_NAME);
         assert!(validate_name(&token_name), ERR_INVALID_TOKEN_NAME);
 
@@ -142,8 +144,9 @@ module nft_market::nft_market {
             coin::register<GGWPCoin>(seller);
         };
 
-        token_transfers::offer(seller, @nft_market, token_id, 1);
         let res_signer = account::create_signer_with_capability(&market_info.signer_cap);
+        let res_signer_addr = signer::address_of(&res_signer);
+        token_transfers::offer(seller, res_signer_addr, token_id, 1);
         token_transfers::claim(&res_signer, seller_addr, token_id);
 
         table::add(&mut market_info.listing, token_id, ListingData {
@@ -174,8 +177,8 @@ module nft_market::nft_market {
         let seller_addr = signer::address_of(seller);
         assert!(exists<MarketInfo>(@nft_market), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(@nft_market), ERR_NOT_INITIALIZED);
-        assert!(gateway::get_project_is_blocked(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
-        assert!(gateway::get_project_is_removed(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_blocked(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_removed(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
 
         let market_info = borrow_global_mut<MarketInfo>(@nft_market);
         let token_id = create_token_id_raw(creator_addr, collection, token_name, 0);
@@ -208,8 +211,8 @@ module nft_market::nft_market {
     ) acquires MarketInfo, Events {
         assert!(exists<MarketInfo>(@nft_market), ERR_NOT_INITIALIZED);
         assert!(exists<Events>(@nft_market), ERR_NOT_INITIALIZED);
-        assert!(gateway::get_project_is_blocked(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
-        assert!(gateway::get_project_is_removed(seller_addr), ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_blocked(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
+        assert!(gateway::get_project_is_removed(seller_addr) == false, ERR_PROJECT_BLOCKED_OR_REMOVED);
 
         let buyer_addr = signer::address_of(buyer);
         let market_info = borrow_global_mut<MarketInfo>(@nft_market);
@@ -243,6 +246,22 @@ module nft_market::nft_market {
                 date: now,
             },
         );
+    }
+
+    // Views
+
+    #[view]
+    public fun get_accumulative_fund_addr(): address acquires MarketInfo {
+        assert!(exists<MarketInfo>(@nft_market), ERR_NOT_INITIALIZED);
+        let market_info = borrow_global<MarketInfo>(@nft_market);
+        market_info.accumulative_fund
+    }
+
+    #[view]
+    public fun get_royalty(): u8 acquires MarketInfo {
+        assert!(exists<MarketInfo>(@nft_market), ERR_NOT_INITIALIZED);
+        let market_info = borrow_global<MarketInfo>(@nft_market);
+        market_info.royalty
     }
 
     // Utils
