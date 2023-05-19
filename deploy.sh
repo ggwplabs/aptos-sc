@@ -59,6 +59,7 @@ GATEWAY_INITIALIZE="$GATEWAY::gateway::initialize"
 GATEWAY_GAMES_REWARD_FUND_DEPOSIT="$GATEWAY::gateway::games_reward_fund_deposit"
 
 NFT_MARKET="0x$profiles_nft_market_account"
+NFT_MARKET_INITIALIZE="$NFT_MARKET::nft_market::initialize"
 
 GAMES_REWARD_FUND="0x$profiles_gateway_account"
 COMPANY_FUND="0x$profiles_company_fund_account"
@@ -196,6 +197,9 @@ then
 
     echo "Deploy gateway sc.."
     aptos move publish --profile gateway --package-dir gateway --assume-yes --bytecode-version 6
+
+    echo "Deploy nft market sc.."
+    aptos move publish --profile nft_market --package-dir nft_market --assume-yes --bytecode-version 6
 fi
 
 if [[ $FAUCET_INIT == "ON" ]]
@@ -292,4 +296,14 @@ then
     echo "Deposit GGWP into games reward fund"
     ARGS="address:$GATEWAY u64:30000000000000000"
     aptos move run --function-id $GATEWAY_GAMES_REWARD_FUND_DEPOSIT --args $ARGS --profile faucet --assume-yes
+fi
+
+if [[ $NFT_MARKET_INIT == "ON" ]]
+then
+    echo "Initialize nft market"
+    accumulative_fund=$ACCUMULATIVE_FUND
+    royalty=8
+    seed="market"
+    ARGS="address:$accumulative_fund u8:$royalty string:$seed"
+    aptos move run --function-id $NFT_MARKET_INITIALIZE --args $ARGS --profile nft_market --assume-yes
 fi
